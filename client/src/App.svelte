@@ -15,9 +15,11 @@
   };
 
   const savedBaseUrl = "gemma4-irodori-chat.base-url";
-  const defaultBaseUrl = "http://127.0.0.1:8000";
+  const legacyDefaultBaseUrl = "http://127.0.0.1:8000";
+  const defaultBaseUrl = import.meta.env.VITE_GIC_DEFAULT_BASE_URL ?? "http://192.168.3.2:8000";
+  const storedBaseUrl = localStorage.getItem(savedBaseUrl);
 
-  let baseUrl = localStorage.getItem(savedBaseUrl) ?? defaultBaseUrl;
+  let baseUrl = storedBaseUrl && storedBaseUrl !== legacyDefaultBaseUrl ? storedBaseUrl : defaultBaseUrl;
   let draftBaseUrl = baseUrl;
   let displayState: DisplayState = "disconnected";
   let health: HealthResponse | null = null;
