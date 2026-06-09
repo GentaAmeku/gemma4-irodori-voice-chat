@@ -312,6 +312,20 @@ audio {
   background: #1d211f;
 }
 
+.assistant-pending {
+  border-color: #52625d;
+  color: var(--text-muted);
+}
+
+.assistant-error {
+  border-color: var(--danger);
+  color: #fff2f2;
+}
+
+.pending-message {
+  font-weight: 700;
+}
+
 .input-form {
   border-top: 1px solid var(--border);
   padding: 1rem;

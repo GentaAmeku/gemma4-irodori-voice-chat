@@ -7,8 +7,8 @@ export type HealthResponse = {
   server_ok: boolean;
   ready: boolean;
   model: string;
-  ollama_base_url: string;
-  tts_base_url: string;
+  ollama_base_url?: string;
+  tts_base_url?: string;
   mock_services: boolean;
   ollama: DependencyStatus;
   tts: DependencyStatus;

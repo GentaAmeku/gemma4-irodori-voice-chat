@@ -51,6 +51,14 @@ desktop PCのLAN IPをWindows PowerShellで確認します。
 ipconfig
 ```
 
+`IPv4 アドレス` を使います。`デフォルト ゲートウェイ` はルーターなので使いません。
+
+desktop PC自身から、LAN IP宛てでも会話サーバーへ届くことを確認します。
+
+```powershell
+curl.exe http://<desktop-pc-lan-ip>:8000/api/health
+```
+
 MacBookから会話サーバーのhealthを確認します。
 
 ```bash
@@ -106,7 +114,8 @@ http://<desktop-pc-lan-ip>:8000
 
 期待値:
 
-- ユーザー発話が履歴に表示される
+- ユーザー発話が送信直後に履歴へ表示される
+- AI応答が返るまで `リノンが返答中...` が表示される
 - AI応答が履歴に表示される
 - 最後の読み上げプレイヤーが表示される
 - 履歴内のAI応答にも音声プレイヤーが表示される
@@ -136,6 +145,18 @@ Optionsを開きます。
 - 会話サーバーが `--host 0.0.0.0 --port 8000` で起動しているか
 - Windows FirewallがPrivate networkでport 8000を許可しているか
 - WSL2 NATの場合、portproxyが設定されているか
+- Windowsのネットワークプロファイルが `Private` になっているか
+- `netsh interface portproxy show v4tov4` の転送先がWSLのIPv4になっているか
+
+desktop PCのPowerShellで `127.0.0.1:8000` は成功するのに `<desktop-pc-lan-ip>:8000` が失敗する場合は、WSLではなくWindows側のLAN公開設定を確認します。
+
+```powershell
+curl.exe http://127.0.0.1:8000/api/health
+curl.exe http://<desktop-pc-lan-ip>:8000/api/health
+netsh interface portproxy show v4tov4
+Get-Service iphlpsvc
+Get-NetConnectionProfile
+```
 
 ### UIでOllamaだけ要確認になる
 

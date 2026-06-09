@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemma4 Windows AMD Setup"
+  short_description: "Windows AMD setup for Gemma4 Irodori."
+  default_prompt: "Windows AMD PCでGemma4 Irodori ChatのWSL/Ollama/irodori-TTSセットアップを進めてください。"

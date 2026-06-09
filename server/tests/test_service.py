@@ -7,7 +7,7 @@ import pytest
 
 from app.adapters import IrodoriTtsClient, OllamaClient
 from app.config import AppConfig
-from app.models import AppSettings, ConversationTurn
+from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
 from app.service import ConversationBusyError, ConversationService
 from app.storage import ConversationHistory, SettingsStore
 
@@ -29,6 +29,15 @@ def test_settings_save_load_and_history_clear(tmp_path: Path) -> None:
     assert store.load().character_name == "テスト"
     history.clear()
     assert history.all() == []
+
+
+def test_legacy_default_character_prompt_is_migrated(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path)
+    store.save(AppSettings(character_prompt=LEGACY_CHARACTER_PROMPT))
+
+    settings = store.load()
+
+    assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
 
 
 @pytest.mark.asyncio

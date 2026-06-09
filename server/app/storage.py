@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import shutil
 
-from .models import AppSettings, ConversationTurn
+from .models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
 
 
 class SettingsStore:
@@ -23,7 +23,11 @@ class SettingsStore:
             self.save(settings)
             return settings
         data = json.loads(self.settings_path.read_text(encoding="utf-8"))
-        return AppSettings.model_validate(data)
+        settings = AppSettings.model_validate(data)
+        if settings.character_prompt == LEGACY_CHARACTER_PROMPT:
+            settings.character_prompt = DEFAULT_CHARACTER_PROMPT
+            self.save(settings)
+        return settings
 
     def save(self, settings: AppSettings) -> None:
         self.ensure_dirs()

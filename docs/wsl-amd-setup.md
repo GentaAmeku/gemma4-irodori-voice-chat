@@ -286,15 +286,55 @@ desktop PCのLAN IPはWindows PowerShellで確認します。
 ipconfig
 ```
 
+使うのは、MacBookと同じLANに出ているWindows本体のIPv4アドレスです。`デフォルト ゲートウェイ` はルーターなので使いません。
+
+例:
+
+```text
+IPv4 アドレス       : 192.168.3.2  <- MacBookから指定する入口
+デフォルト ゲートウェイ: 192.168.3.1  <- これは使わない
+```
+
+WSLや依存サービスのアドレスとは役割が違います。
+
+```text
+MacBook
+  -> http://<desktop-pc-lan-ip>:8000  # Windows本体のLAN IP
+  -> Windows portproxy
+  -> http://<wsl-ip>:8000             # WSL内の会話サーバー
+  -> http://<windows-host-ip>:11434    # WSLから見たWindows Ollama
+  -> http://127.0.0.1:8088            # WSL内のirodori-TTS
+```
+
 WSL2の既定NAT構成では、LAN内の別端末からWSL上のサーバーへ直接届かないことがあります。その場合は、Windows 11 22H2以降ならWSL mirrored networkingを使うか、Windows側でportproxyを設定します。
 
 portproxyを使う例:
 
 ```powershell
+$LanIp = "192.168.3.2"
 $WslIp = (wsl -d Ubuntu-24.04 hostname -I).Trim().Split(" ")[0]
-netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=8000 connectaddress=$WslIp connectport=8000
-New-NetFirewallRule -DisplayName "Gemma4 Irodori Chat API 8000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -Profile Private
+
+netsh interface portproxy delete v4tov4 listenaddress=$LanIp listenport=8000
+netsh interface portproxy add v4tov4 listenaddress=$LanIp listenport=8000 connectaddress=$WslIp connectport=8000
+
+New-NetFirewallRule `
+  -DisplayName "Gemma4 Irodori Chat API 8000" `
+  -Direction Inbound `
+  -Action Allow `
+  -Protocol TCP `
+  -LocalAddress $LanIp `
+  -LocalPort 8000 `
+  -Profile Private
 ```
+
+設定後に、desktop PCのPowerShellでLAN IP宛てに確認します。
+
+```powershell
+netsh interface portproxy show v4tov4
+curl.exe http://192.168.3.2:8000/api/health
+```
+
+`portproxy show v4tov4` の転送先は、`172.x.x.x` のようなWSLのIPv4になっている必要があります。文字化けした値や空の値が出る場合は、`hostname -I` の結果からWSL IPv4を手で確認し、`$WslIp` に直接入れて作り直してください。
 
 MacBookから疎通確認:
 
@@ -413,6 +453,30 @@ ollama list
 ```
 
 必要な場合だけ、Windows側でOllamaのユーザー環境変数 `OLLAMA_HOST=0.0.0.0:11434` を設定し、Ollamaを再起動します。この設定はLAN内の他端末からも到達可能になりうるため、WindowsファイアウォールでLAN限定にしてください。
+
+### Windows PowerShellで `127.0.0.1:8000` は成功するが、LAN IPでは失敗する
+
+Windows localhost forwardingは効いていますが、LAN向けの待ち受けまたは転送ができていません。Windows PowerShellで確認します。
+
+```powershell
+curl.exe http://127.0.0.1:8000/api/health
+curl.exe http://<desktop-pc-lan-ip>:8000/api/health
+netsh interface portproxy show v4tov4
+Get-Service iphlpsvc
+Get-NetConnectionProfile
+```
+
+確認ポイント:
+
+- `curl.exe http://127.0.0.1:8000/api/health` が成功するなら、WSL内の会話サーバー自体は動いています。
+- `curl.exe http://<desktop-pc-lan-ip>:8000/api/health` が失敗するなら、portproxyまたはWindows Firewallを見ます。
+- `portproxy show v4tov4` の転送先は、WSLのIPv4になっている必要があります。
+- `iphlpsvc` は `Running` である必要があります。
+- `NetworkCategory` が `Public` の場合、`-Profile Private` のFirewallルールは効きません。信頼できる自宅LANなら、管理者PowerShellでPrivateに変更します。
+
+```powershell
+Set-NetConnectionProfile -InterfaceIndex <Get-NetConnectionProfileで見えたInterfaceIndex> -NetworkCategory Private
+```
 
 ### `uv sync --extra rocm` が失敗する
 

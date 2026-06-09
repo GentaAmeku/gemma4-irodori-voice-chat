@@ -8,6 +8,11 @@
     state: "ok" | "error" | "unknown";
     detail: string;
   };
+  type DisplayTurn = ConversationTurn & {
+    id: string;
+    state: "complete" | "pending" | "error";
+    errorMessage?: string;
+  };
 
   const savedBaseUrl = "gemma4-irodori-chat.base-url";
   const defaultBaseUrl = "http://127.0.0.1:8000";
@@ -19,7 +24,7 @@
   let settings: AppSettings | null = null;
   let settingsDraft: AppSettings | null = null;
   let speakers: SpeakerOption[] = [];
-  let turns: ConversationTurn[] = [];
+  let turns: DisplayTurn[] = [];
   let textInput = "";
   let errorMessage = "";
   let statusMessage = "";
@@ -39,7 +44,7 @@
 
   $: canConverse = displayState === "ready" && textInput.trim().length > 0;
   $: characterImageUrl = `${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`;
-  $: statusItems = buildStatusItems();
+  $: statusItems = buildStatusItems(health, displayState, baseUrl);
 
   onMount(() => {
     void connect();
@@ -61,7 +66,7 @@
       settings = nextSettings;
       settingsDraft = { ...nextSettings };
       speakers = nextSpeakers;
-      turns = history.turns;
+      turns = history.turns.map((turn, index) => toDisplayTurn(turn, `history-${index}`));
       displayState = nextHealth.ready ? "ready" : "error";
       if (!nextHealth.ready) {
         errorMessage = dependencyMessage(nextHealth);
@@ -83,19 +88,33 @@
     }
     displayState = "conversing";
     errorMessage = "";
-    statusMessage = "考え中";
+    statusMessage = `${settings?.character_name ?? "リノン"}が返答中`;
     textInput = "";
+    const pendingId = createTurnId();
+    const pendingTurn: DisplayTurn = {
+      id: pendingId,
+      state: "pending",
+      user_text: text,
+      assistant_text: "",
+      audio_url: "",
+    };
+    turns = [...turns, pendingTurn];
     try {
       const turn = await api.textTurn(baseUrl, text);
-      turns = [...turns, turn];
+      turns = turns.map((existing) => (existing.id === pendingId ? toDisplayTurn(turn, pendingId) : existing));
       latestAudioUrl = turn.audio_url;
       statusMessage = "読み上げ中";
       const didPlay = await tryPlayAudio(turn.audio_url);
       displayState = "ready";
       statusMessage = didPlay ? "利用可能です" : "自動再生できませんでした。音声プレイヤーから再生してください。";
     } catch (error) {
-      displayState = "error";
-      errorMessage = formatError(error);
+      const nextErrorMessage = formatError(error);
+      turns = turns.map((existing) =>
+        existing.id === pendingId ? { ...existing, state: "error", errorMessage: nextErrorMessage } : existing,
+      );
+      displayState = "ready";
+      errorMessage = nextErrorMessage;
+      statusMessage = "返答に失敗しました";
     }
   }
 
@@ -183,27 +202,45 @@
     return errors.join(" / ") || "会話サーバーは応答しましたが、利用可能状態ではありません";
   }
 
-  function buildStatusItems(): StatusItem[] {
-    if (!health) {
+  function buildStatusItems(
+    currentHealth: HealthResponse | null,
+    currentDisplayState: DisplayState,
+    currentBaseUrl: string,
+  ): StatusItem[] {
+    if (!currentHealth) {
       return [
-        { label: "会話サーバー", state: displayState === "connecting" ? "unknown" : "error", detail: baseUrl },
+        { label: "会話サーバー", state: currentDisplayState === "connecting" ? "unknown" : "error", detail: currentBaseUrl },
         { label: "Ollama", state: "unknown", detail: "未確認" },
         { label: "irodori-TTS", state: "unknown", detail: "未確認" },
       ];
     }
     return [
-      { label: "会話サーバー", state: health.server_ok ? "ok" : "error", detail: baseUrl },
+      { label: "会話サーバー", state: currentHealth.server_ok ? "ok" : "error", detail: currentBaseUrl },
       {
         label: "Ollama",
-        state: health.ollama.ok ? "ok" : "error",
-        detail: health.ollama.ok ? `${health.model} / ${health.ollama_base_url}` : (health.ollama.detail ?? "利用できません"),
+        state: currentHealth.ollama.ok ? "ok" : "error",
+        detail: currentHealth.ollama.ok
+          ? `${currentHealth.model} / ${currentHealth.ollama_base_url ?? "接続済み"}`
+          : (currentHealth.ollama.detail ?? "利用できません"),
       },
       {
         label: "irodori-TTS",
-        state: health.tts.ok ? "ok" : "error",
-        detail: health.tts.ok ? health.tts_base_url : (health.tts.detail ?? "利用できません"),
+        state: currentHealth.tts.ok ? "ok" : "error",
+        detail: currentHealth.tts.ok ? (currentHealth.tts_base_url ?? "接続済み") : (currentHealth.tts.detail ?? "利用できません"),
       },
     ];
+  }
+
+  function toDisplayTurn(turn: ConversationTurn, id = createTurnId()): DisplayTurn {
+    return {
+      ...turn,
+      id,
+      state: "complete",
+    };
+  }
+
+  function createTurnId(): string {
+    return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 </script>
 
@@ -309,16 +346,27 @@
       {#if turns.length === 0}
         <li class="empty-history">まだ会話はありません。</li>
       {:else}
-        {#each turns as turn}
+        {#each turns as turn (turn.id)}
           <li class="turn">
             <article class="bubble user-bubble">
               <h3>あなた</h3>
               <p>{turn.user_text}</p>
             </article>
-            <article class="bubble assistant-bubble">
+            <article
+              class:assistant-pending={turn.state === "pending"}
+              class:assistant-error={turn.state === "error"}
+              class="bubble assistant-bubble"
+              aria-busy={turn.state === "pending"}
+            >
               <h3>{settings?.character_name ?? "AI"}</h3>
-              <p>{turn.assistant_text}</p>
-              <audio controls src={api.absoluteUrl(baseUrl, turn.audio_url)}></audio>
+              {#if turn.state === "pending"}
+                <p class="pending-message" aria-live="polite">{settings?.character_name ?? "リノン"}が返答中<span aria-hidden="true">...</span></p>
+              {:else if turn.state === "error"}
+                <p>{turn.errorMessage ?? "返答に失敗しました"}</p>
+              {:else}
+                <p>{turn.assistant_text}</p>
+                <audio controls src={api.absoluteUrl(baseUrl, turn.audio_url)}></audio>
+              {/if}
             </article>
           </li>
         {/each}

@@ -18,6 +18,9 @@ test("connects to the mock conversation server and completes a text turn", async
   await expect(page.locator("#character-title")).toHaveText("リノン");
   await expect(page.getByText("gemma4:12b / mock")).toBeVisible();
   await expect(page.getByText("接続しました")).toBeVisible();
+  await expect(page.locator(".status-tile").filter({ hasText: "会話サーバー" }).getByText("接続済み")).toBeVisible();
+  await expect(page.locator(".status-tile").filter({ hasText: "Ollama" }).getByText("接続済み")).toBeVisible();
+  await expect(page.locator(".status-tile").filter({ hasText: "irodori-TTS" }).getByText("接続済み")).toBeVisible();
 
   await page.getByLabel("テキスト入力").fill("クライアントE2Eの確認です");
   await page.getByRole("button", { name: "送信" }).click();
@@ -26,6 +29,36 @@ test("connects to the mock conversation server and completes a text turn", async
   await expect(page.getByText("リノンです。『クライアントE2Eの確認です』について、まずは短く返すね。")).toBeVisible();
   await expect(page.getByLabel("最後の読み上げ").locator("audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
   await expect(page.locator(".assistant-bubble audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
+});
+
+test("shows the user message while waiting for the assistant response", async ({ page }) => {
+  let releaseResponse!: () => void;
+  const responseReady = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+
+  await page.route("http://127.0.0.1:8000/api/turns/text", async (route) => {
+    await responseReady;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        user_text: "今日も疲れたね",
+        assistant_text: "今日もおつかれさま。少しだけ休もうね。",
+        audio_url: "/media/audio/pending-test.wav",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("テキスト入力").fill("今日も疲れたね");
+  await page.getByRole("button", { name: "送信" }).click();
+
+  await expect(page.getByText("今日も疲れたね", { exact: true })).toBeVisible();
+  await expect(page.getByText("リノンが返答中...")).toBeVisible();
+
+  releaseResponse();
+  await expect(page.getByText("今日もおつかれさま。少しだけ休もうね。")).toBeVisible();
 });
 
 test("saves settings and clears conversation history", async ({ page }) => {

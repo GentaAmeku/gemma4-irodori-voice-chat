@@ -34,7 +34,8 @@
 - The client UI shows whether the app is ready to converse, based on the conversation server connection and dependency health.
 - The MVP client UI uses these display states: disconnected, connecting, ready, conversing, error.
 - Error details may distinguish conversation server, Ollama, irodori-TTS, microphone, and playback failures.
-- While conversing, the MVP client UI shows conversation progress: listening, thinking, speaking.
+- For text turns, the MVP client UI shows the user's message immediately and displays an assistant pending state while the synchronous REST request is running.
+- Voice-input progress states such as listening, thinking, speaking are deferred until the voice phase.
 - The MVP supports canceling an active conversation turn.
 - Canceling during listening stops audio capture and discards the turn.
 - Canceling during thinking discards the result of the turn.
@@ -50,9 +51,11 @@
 - Future emotion control should be represented separately from the response text, not embedded in natural-language output.
 - The client UI does not edit Ollama connection settings or model names in the MVP.
 - The client UI may display the currently configured LLM model reported by the conversation server.
-- In the MVP, the read-aloud setting UI edits only natural-language voice guidance and speaker selection.
+- In the MVP, speaker selection is the effective read-aloud control exposed to the user.
+- Natural-language read-aloud guidance may be stored as future-facing character metadata, but Irodori-TTS-Server's current OpenAI-compatible speech endpoint does not directly consume it as a prompt.
 - Detailed TTS parameters such as speed, style, steps, and auto-style are fixed or server-side only in the MVP.
 - The conversation server retrieves available speaker options from irodori-TTS and exposes them to client apps.
+- For stable voice tone, the MVP expects reference voices to be registered in Irodori-TTS-Server. If only `none` is available, voice tone may not match the intended character.
 - PC and smartphone clients share the same information architecture.
 - The UI layout is responsive: desktop may place character/settings beside conversation, while mobile stacks character, conversation, and input with settings behind a secondary view or collapsible panel.
 - Settings are edited in a settings panel, not as a separate full application screen in the MVP.
@@ -85,7 +88,7 @@
 - The repository is split into server/ for the Python conversation server and client/ for the Svelte client.
 - Tauri files will be added under client/src-tauri/ after the web client works end to end.
 - Server tests cover settings save/load, busy rejection, history clearing, and text-turn behavior with external dependencies mocked.
-- Client testing starts with manual browser E2E checks. Playwright automation is deferred.
+- Client testing includes Playwright E2E checks for the text conversation vertical slice.
 - Text conversation turns are synchronous REST calls in the MVP. The response waits for LLM generation and read-aloud audio generation to finish.
 - Job creation and polling for conversation turns are deferred.
 - Synchronous text conversation turns time out after 90 seconds in the MVP.

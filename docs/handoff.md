@@ -60,6 +60,8 @@ MacBook client
 - health表示
 - 会話サーバー / Ollama / irodori-TTS の状態パネル
 - テキスト会話
+- 送信直後のユーザー発話表示
+- 応答待ち表示（`リノンが返答中...`）
 - 応答履歴
 - 最後の読み上げプレイヤー
 - 自動再生失敗時の手動再生導線
@@ -95,6 +97,7 @@ Linux AMD:
 - [Design Notes](./design.md)
 - [Context Glossary](../CONTEXT.md)
 - [Gemma4 Irodori Setup Skill](../.agents/skills/gemma4-irodori-setup/SKILL.md)
+- [Gemma4 Windows AMD Setup Skill](../.agents/skills/gemma4-windows-amd-setup/SKILL.md)
 
 ## 動作確認
 
@@ -125,21 +128,26 @@ cd ~/ghq/gemma4-irodori-voice-chat
 
 直近の確認では以下が成功済み。
 
-- `uv run pytest`: 3 passed
+- MacBookから `http://192.168.3.2:8000/api/health`: success
+- MacBookから実テキスト会話ターン: success
+- 実irodori音声WAV取得: success
+- MacBook Web UI状態表示: 会話サーバー / Ollama / irodori-TTS が接続済み
+- `uv run pytest`: 4 passed
 - `pnpm check`: 0 errors
 - `pnpm build`: success
-- `pnpm test:e2e`: 2 passed
+- `pnpm test:e2e`: 3 passed
 - `bash -n scripts/wsl/*.sh`: success
 
 ## 次にやる候補
 
 推奨順:
 
-1. MacBookからdesktop PC WSL会話サーバーへの実機UI確認
-2. 実irodori音声の再生品質と話者選択の確認
-3. 失敗時ログとUIメッセージの改善
-4. UIデザイン調整
-5. 音声入力フェーズ
+1. desktop PC側WSLリポジトリへ最新修正を反映し、会話サーバーを再起動する
+2. 返答中表示と新しい人格プロンプトを実機UIで再確認する
+3. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
+4. 失敗時ログとUIメッセージの改善
+5. UIデザイン調整（別エージェント検討中）
+6. 音声入力フェーズ
    - WebSocket設計
    - ブラウザマイク入力
    - PCM変換
@@ -153,7 +161,11 @@ cd ~/ghq/gemma4-irodori-voice-chat
 - MVPではトークン認証なし。
 - 会話履歴はMVPではメモリ保持。
 - 同時会話は1つのみ。busy時は409で拒否。
+- テキスト会話は同期REST。ユーザー発話はクライアント側で即時表示し、サーバー応答で置換する。
 - 読み上げON/OFFは設計には残すがMVPでは不要。
+- 現状の実機 `/api/speakers` は `none` のみ。声質をキャラクターに寄せるにはIrodori-TTS-Serverへ参照音声を登録する必要がある。
+- `read_aloud_prompt` は将来用のメタデータで、現行Irodori-TTS-Serverのspeech endpointには直接渡していない。
+- Windows AMD環境セットアップやLAN公開の切り分けは `gemma4-windows-amd-setup` skill を使う。
 - Tauri化はWebクライアントと会話サーバーが安定してから。
 - スマホ実機対応もPC Webの縦切り後。
 
