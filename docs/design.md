@@ -1,0 +1,98 @@
+# Design Notes
+
+## Current Decisions
+
+- The app is a thin client. PC and smartphone clients connect to a conversation server running on an inference PC.
+- A voice interaction starts when the user presses the microphone button once. The client streams audio chunks, and the conversation server decides the utterance endpoint.
+- Voice and text inputs both become conversation turns.
+- Text input is supported from the start.
+- AI responses are read aloud by default, including responses to text input.
+- In the MVP, every conversation turn produces both visible response text and read-aloud audio.
+- The conversation server may accept multiple client connections.
+- The MVP supports only one active conversation turn at a time. Simultaneous use from multiple clients is out of scope.
+- If another client starts input while a conversation turn is active, the conversation server rejects it with a busy response instead of queueing it.
+- The conversation server owns the canonical conversation history.
+- In the MVP, conversation history may be kept in server memory. Persistent history is deferred.
+- In the MVP, one character setting and one read-aloud setting apply to the whole conversation server.
+- In the MVP, the client UI can edit the character name, character setting, and read-aloud setting.
+- Character and read-aloud setting edits are applied only after explicit save.
+- Saved setting changes apply from the next conversation turn.
+- Character and read-aloud settings are persisted by the conversation server in the MVP.
+- Saving character or read-aloud settings clears the in-memory conversation history in the MVP.
+- The MVP requires one character image.
+- The character image is a static image. Live2D, expression variants, and speaking animation are out of scope for the MVP.
+- The character image may be prepared later with an image generation tool, but image generation is not part of the MVP app.
+- The conversation server owns the canonical character image. Client apps fetch and display it.
+- The MVP allows replacing the character image by uploading an image file from the client UI.
+- Image generation integration is out of scope for the MVP.
+- The MVP lets the user edit the conversation server connection target from the client UI.
+- The client app stores the last successful connection target locally.
+- The app is designed for LAN-only use. Internet access to the conversation server is out of scope beyond the MVP as well.
+- The MVP does not require authentication for the conversation server.
+- In the MVP, Ollama and irodori-TTS are expected to be started separately before the conversation server.
+- The conversation server performs health checks for Ollama and irodori-TTS, but does not start or supervise them.
+- The client UI shows whether the app is ready to converse, based on the conversation server connection and dependency health.
+- The MVP client UI uses these display states: disconnected, connecting, ready, conversing, error.
+- Error details may distinguish conversation server, Ollama, irodori-TTS, microphone, and playback failures.
+- While conversing, the MVP client UI shows conversation progress: listening, thinking, speaking.
+- The MVP supports canceling an active conversation turn.
+- Canceling during listening stops audio capture and discards the turn.
+- Canceling during thinking discards the result of the turn.
+- Canceling during speaking stops playback and ends the turn.
+- In the MVP, LLM responses are shown after full generation, not streamed token-by-token.
+- Sentence-level or token-level response streaming is deferred.
+- In the MVP, generated read-aloud audio is returned to the client as an audio file URL.
+- Streaming read-aloud audio over WebSocket is deferred.
+- In the MVP, generated read-aloud audio files are temporary artifacts, not persisted conversation history.
+- The MVP displays the recognized text for voice input in the conversation history.
+- The MVP does not include a confirmation or correction step before sending recognized voice text to the LLM.
+- The MVP does not require explicit emotion tags in LLM output.
+- Future emotion control should be represented separately from the response text, not embedded in natural-language output.
+- The client UI does not edit Ollama connection settings or model names in the MVP.
+- The client UI may display the currently configured LLM model reported by the conversation server.
+- In the MVP, the read-aloud setting UI edits only natural-language voice guidance and speaker selection.
+- Detailed TTS parameters such as speed, style, steps, and auto-style are fixed or server-side only in the MVP.
+- The conversation server retrieves available speaker options from irodori-TTS and exposes them to client apps.
+- PC and smartphone clients share the same information architecture.
+- The UI layout is responsive: desktop may place character/settings beside conversation, while mobile stacks character, conversation, and input with settings behind a secondary view or collapsible panel.
+- Settings are edited in a settings panel, not as a separate full application screen in the MVP.
+- The main screen prioritizes character image, conversation history, input controls, and status.
+- The MVP frontend uses Svelte with TypeScript and Vite.
+- The initial htmx idea is rejected because the client needs substantial local state and browser API control for microphone input, audio playback, WebSocket audio streaming, cancellation, and settings panels.
+- The MVP implementation targets the PC client first.
+- Smartphone support is designed for from the start, but mobile builds and real-device validation come after the PC MVP is working end to end.
+- Development starts with the Svelte web client running in a desktop browser against the conversation server.
+- The PC Tauri app is added after the web client and conversation server work end to end.
+- The first vertical slice uses text input, then runs LLM response generation, read-aloud audio generation, visible response display, and audio playback.
+- Voice input, VAD, STT, and audio chunk streaming are added after the text-to-voice vertical slice works.
+- The MVP uses REST for health, settings, character image, speaker options, and text conversation turns.
+- The MVP uses WebSocket for voice conversation turns, audio chunks, progress events, and cancellation.
+- Voice WebSocket connections are opened per voice session in the MVP.
+- The MVP does not keep an idle voice WebSocket connection open between voice sessions.
+- Voice audio chunks are sent as WebSocket binary frames using PCM signed 16-bit little-endian, 16 kHz, mono in the MVP.
+- Compressed audio formats such as Opus are deferred.
+- The client app converts microphone input to the MVP voice chunk format before sending it.
+- The conversation server expects the voice chunk format and does not decode browser-specific recording containers in the MVP.
+- The STT model is configured on the conversation server in the MVP.
+- The client UI does not expose STT model selection in the MVP.
+- The MVP sends the character setting, the latest user input, and the most recent 10 conversation turns to the LLM.
+- The conversation server may keep more in-memory history than it sends to the LLM.
+- The MVP includes a client UI action to clear conversation history.
+- The MVP conversation server is started with a Python development command.
+- Packaging the conversation server with PyInstaller or running it as a managed service is deferred.
+- Python server dependencies are managed with uv using pyproject.toml and uv.lock.
+- Client dependencies are managed with pnpm.
+- The repository is split into server/ for the Python conversation server and client/ for the Svelte client.
+- Tauri files will be added under client/src-tauri/ after the web client works end to end.
+- Server tests cover settings save/load, busy rejection, history clearing, and text-turn behavior with external dependencies mocked.
+- Client testing starts with manual browser E2E checks. Playwright automation is deferred.
+- Text conversation turns are synchronous REST calls in the MVP. The response waits for LLM generation and read-aloud audio generation to finish.
+- Job creation and polling for conversation turns are deferred.
+- Synchronous text conversation turns time out after 90 seconds in the MVP.
+- Timed-out or failed conversation turns are not added to conversation history in the MVP.
+
+## Deferred Decisions
+
+- A read-aloud on/off control is part of the product design, but it is not required for the MVP.
+- Persistent conversation history storage is deferred.
+- Shared-token authentication is a future candidate, not part of the MVP.

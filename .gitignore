@@ -1,0 +1,17 @@
+.DS_Store
+
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+server/data/
+
+# Node / Vite
+node_modules/
+dist/
+.pnpm-store/
+test-results/
+playwright-report/
+
+# Logs
+*.log
