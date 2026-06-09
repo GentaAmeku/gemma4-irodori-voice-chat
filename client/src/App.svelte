@@ -3,6 +3,11 @@
   import { api, ApiError, type AppSettings, type ConversationTurn, type HealthResponse, type SpeakerOption } from "./api";
 
   type DisplayState = "disconnected" | "connecting" | "ready" | "conversing" | "error";
+  type StatusItem = {
+    label: string;
+    state: "ok" | "error" | "unknown";
+    detail: string;
+  };
 
   const savedBaseUrl = "gemma4-irodori-chat.base-url";
   const defaultBaseUrl = "http://127.0.0.1:8000";
@@ -22,6 +27,7 @@
   let imageVersion = Date.now();
   let imageMissing = false;
   let audioElement: HTMLAudioElement | null = null;
+  let latestAudioUrl = "";
 
   const displayLabels: Record<DisplayState, string> = {
     disconnected: "未接続",
@@ -33,6 +39,7 @@
 
   $: canConverse = displayState === "ready" && textInput.trim().length > 0;
   $: characterImageUrl = `${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`;
+  $: statusItems = buildStatusItems();
 
   onMount(() => {
     void connect();
@@ -81,10 +88,11 @@
     try {
       const turn = await api.textTurn(baseUrl, text);
       turns = [...turns, turn];
+      latestAudioUrl = turn.audio_url;
       statusMessage = "読み上げ中";
-      await playAudio(turn.audio_url);
+      const didPlay = await tryPlayAudio(turn.audio_url);
       displayState = "ready";
-      statusMessage = "利用可能です";
+      statusMessage = didPlay ? "利用可能です" : "自動再生できませんでした。音声プレイヤーから再生してください。";
     } catch (error) {
       displayState = "error";
       errorMessage = formatError(error);
@@ -134,13 +142,18 @@
     }
   }
 
-  async function playAudio(audioUrl: string) {
+  async function tryPlayAudio(audioUrl: string): Promise<boolean> {
     const source = api.absoluteUrl(baseUrl, audioUrl);
     if (!audioElement) {
       audioElement = new Audio();
     }
     audioElement.src = source;
-    await audioElement.play();
+    try {
+      await audioElement.play();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function formatError(error: unknown): string {
@@ -151,6 +164,9 @@
       return `${error.status}: ${error.message}`;
     }
     if (error instanceof Error) {
+      if (error.message === "Failed to fetch" || error.message === "Load failed") {
+        return "会話サーバーに接続できません。接続先URL、desktop PCのIP、Windowsファイアウォール、WSLのポート公開を確認してください。";
+      }
       return error.message;
     }
     return "不明なエラーが発生しました";
@@ -165,6 +181,29 @@
       errors.push(`irodori-TTS: ${nextHealth.tts.detail ?? "利用できません"}`);
     }
     return errors.join(" / ") || "会話サーバーは応答しましたが、利用可能状態ではありません";
+  }
+
+  function buildStatusItems(): StatusItem[] {
+    if (!health) {
+      return [
+        { label: "会話サーバー", state: displayState === "connecting" ? "unknown" : "error", detail: baseUrl },
+        { label: "Ollama", state: "unknown", detail: "未確認" },
+        { label: "irodori-TTS", state: "unknown", detail: "未確認" },
+      ];
+    }
+    return [
+      { label: "会話サーバー", state: health.server_ok ? "ok" : "error", detail: baseUrl },
+      {
+        label: "Ollama",
+        state: health.ollama.ok ? "ok" : "error",
+        detail: health.ollama.ok ? `${health.model} / ${health.ollama_base_url}` : (health.ollama.detail ?? "利用できません"),
+      },
+      {
+        label: "irodori-TTS",
+        state: health.tts.ok ? "ok" : "error",
+        detail: health.tts.ok ? health.tts_base_url : (health.tts.detail ?? "利用できません"),
+      },
+    ];
   }
 </script>
 
@@ -206,7 +245,18 @@
         <input id="server-url" type="url" bind:value={draftBaseUrl} required />
         <button type="submit">接続</button>
       </div>
+      <p class="form-help">MacBookからはdesktop PC上の会話サーバーを指定します。例: http://&lt;desktop-pc-lan-ip&gt;:8000</p>
     </form>
+
+    <div class="status-grid" aria-label="接続状態">
+      {#each statusItems as item}
+        <section class:status-ok={item.state === "ok"} class:status-error={item.state === "error"} class="status-tile">
+          <h2>{item.label}</h2>
+          <p>{item.state === "ok" ? "接続済み" : item.state === "error" ? "要確認" : "未確認"}</p>
+          <small>{item.detail}</small>
+        </section>
+      {/each}
+    </div>
 
     {#if showSettings && settingsDraft}
       <aside class="settings-panel" aria-labelledby="settings-title">
@@ -276,6 +326,15 @@
     </ol>
 
     <form class="input-form" on:submit|preventDefault={sendTextTurn}>
+      {#if latestAudioUrl}
+        <div class="latest-audio" aria-label="最後の読み上げ">
+          <div>
+            <h3>最後の読み上げ</h3>
+            <p>自動再生されない場合はここから再生できます。</p>
+          </div>
+          <audio controls src={api.absoluteUrl(baseUrl, latestAudioUrl)}></audio>
+        </div>
+      {/if}
       <label for="text-input">テキスト入力</label>
       <div class="input-row">
         <textarea

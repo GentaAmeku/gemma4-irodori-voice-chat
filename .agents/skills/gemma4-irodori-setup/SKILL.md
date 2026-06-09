@@ -14,6 +14,7 @@ Use this skill for setup and troubleshooting work in this repository.
 - Keep Windows native Irodori as a fallback only, not the main path.
 - Keep Irodori-TTS-Server outside this repository by default, usually as `../Irodori-TTS-Server`.
 - Default Ollama model is `gemma4:12b`; use `GIC_OLLAMA_MODEL` only for overrides.
+- MacBook or other LAN clients connect to the conversation server only, for example `http://<desktop-pc-lan-ip>:8000`; they do not connect directly to Ollama or irodori-TTS.
 
 ## Setup workflow
 
@@ -32,6 +33,7 @@ Use this skill for setup and troubleshooting work in this repository.
 - If WSL cannot reach Ollama, check `http://127.0.0.1:11434/api/tags` first, then the Windows host IP from `ip route show default`.
 - If Irodori ROCm setup fails, check AMD ROCm on WSL prerequisites before editing app code.
 - If Windows browser cannot open the client, check Vite is running in WSL and then use the WSL IP from `hostname -I`.
+- If a MacBook cannot reach the desktop WSL conversation server, check Windows private firewall rules, WSL mirrored networking, or a Windows `netsh interface portproxy` rule for port 8000.
 - Preserve LAN-only assumptions; do not suggest public exposure or tunneling as a default fix.
 
 ## Validation before finishing

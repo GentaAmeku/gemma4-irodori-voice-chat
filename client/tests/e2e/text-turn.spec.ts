@@ -24,8 +24,8 @@ test("connects to the mock conversation server and completes a text turn", async
 
   await expect(page.getByText("クライアントE2Eの確認です", { exact: true })).toBeVisible();
   await expect(page.getByText("リノンです。『クライアントE2Eの確認です』について、まずは短く返すね。")).toBeVisible();
-  await expect(page.locator("audio")).toHaveCount(1);
-  await expect(page.locator("audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
+  await expect(page.getByLabel("最後の読み上げ").locator("audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
+  await expect(page.locator(".assistant-bubble audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
 });
 
 test("saves settings and clears conversation history", async ({ page }) => {

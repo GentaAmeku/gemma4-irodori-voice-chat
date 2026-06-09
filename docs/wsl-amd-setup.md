@@ -255,6 +255,55 @@ hostname -I
 http://172.20.10.2:8000
 ```
 
+## MacBookからdesktop PCへ接続する
+
+MacBookから使う場合も、MacBookのクライアントがOllamaやirodori-TTSへ直接接続する構成にはしません。MacBookからはdesktop PC上の会話サーバーだけに接続します。
+
+```text
+MacBook client
+  -> http://<desktop-pc-lan-ip>:8000
+  -> desktop PC WSL conversation server
+  -> Windows Ollama / WSL irodori-TTS
+```
+
+MacBook側でこのリポジトリのクライアントを起動する場合:
+
+```bash
+cd ~/ghq/gemma4-irodori-voice-chat/client
+pnpm install
+pnpm dev
+```
+
+MacBookブラウザで `http://127.0.0.1:5173` を開き、画面の接続先にdesktop PCの会話サーバーURLを指定します。
+
+```text
+http://<desktop-pc-lan-ip>:8000
+```
+
+desktop PCのLAN IPはWindows PowerShellで確認します。
+
+```powershell
+ipconfig
+```
+
+WSL2の既定NAT構成では、LAN内の別端末からWSL上のサーバーへ直接届かないことがあります。その場合は、Windows 11 22H2以降ならWSL mirrored networkingを使うか、Windows側でportproxyを設定します。
+
+portproxyを使う例:
+
+```powershell
+$WslIp = (wsl -d Ubuntu-24.04 hostname -I).Trim().Split(" ")[0]
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=8000 connectaddress=$WslIp connectport=8000
+New-NetFirewallRule -DisplayName "Gemma4 Irodori Chat API 8000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -Profile Private
+```
+
+MacBookから疎通確認:
+
+```bash
+curl http://<desktop-pc-lan-ip>:8000/api/health
+```
+
+このAPIが返れば、MacBookのクライアント接続先にも同じURLを入れます。
+
 ## 日常の起動順
 
 2回目以降は、基本的にこの順番です。

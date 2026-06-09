@@ -38,6 +38,8 @@ class HealthResponse(BaseModel):
     server_ok: bool
     ready: bool
     model: str
+    ollama_base_url: str
+    tts_base_url: str
     mock_services: bool
     ollama: DependencyStatus
     tts: DependencyStatus

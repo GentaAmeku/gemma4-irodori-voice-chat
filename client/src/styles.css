@@ -132,9 +132,14 @@ audio {
 }
 
 .model-line,
-.conversation-header p {
+.conversation-header p,
+.form-help {
   margin: 0.2rem 0 0;
   color: var(--text-muted);
+}
+
+.form-help {
+  font-size: 0.85rem;
 }
 
 .ghost-button {
@@ -192,6 +197,47 @@ audio {
 .input-form {
   display: grid;
   gap: 0.55rem;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.status-tile {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
+  border-radius: 6px;
+  padding: 0.7rem;
+  background: var(--surface);
+}
+
+.status-tile h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+}
+
+.status-tile p {
+  margin: 0.2rem 0 0;
+  font-weight: 800;
+}
+
+.status-tile small {
+  display: block;
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.status-ok {
+  border-left-color: var(--accent-strong);
+}
+
+.status-error {
+  border-left-color: var(--danger);
 }
 
 .settings-panel {
@@ -272,6 +318,27 @@ audio {
   background: var(--surface);
 }
 
+.latest-audio {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 24rem);
+  gap: 0.8rem;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem;
+  background: var(--surface-soft);
+}
+
+.latest-audio h3,
+.latest-audio p {
+  margin: 0;
+}
+
+.latest-audio p {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
 .input-row {
   display: grid;
   grid-template-columns: 1fr 7rem;
@@ -294,7 +361,9 @@ audio {
   }
 
   .inline-row,
-  .input-row {
+  .input-row,
+  .latest-audio,
+  .status-grid {
     grid-template-columns: 1fr;
   }
 
