@@ -14,7 +14,7 @@
     errorMessage?: string;
   };
 
-  const savedBaseUrl = "gemma4-irodori-chat.base-url";
+  const savedBaseUrl = import.meta.env.VITE_GIC_BASE_URL_STORAGE_KEY ?? "gemma4-irodori-chat.base-url";
   const legacyDefaultBaseUrl = "http://127.0.0.1:8000";
   const defaultBaseUrl = import.meta.env.VITE_GIC_DEFAULT_BASE_URL ?? "http://192.168.3.2:8000";
   const storedBaseUrl = localStorage.getItem(savedBaseUrl);
@@ -47,6 +47,9 @@
   $: canConverse = displayState === "ready" && textInput.trim().length > 0;
   $: characterImageUrl = `${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`;
   $: statusItems = buildStatusItems(health, displayState, baseUrl);
+  $: connectionHelp = isLocalConnection(draftBaseUrl)
+    ? "MacBookローカル構成では、このMac上の会話サーバーに接続します。"
+    : "MacBookからはdesktop PC上の会話サーバーを指定します。例: http://<desktop-pc-lan-ip>:8000";
 
   onMount(() => {
     void connect();
@@ -244,6 +247,15 @@
   function createTurnId(): string {
     return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
+
+  function isLocalConnection(value: string): boolean {
+    try {
+      const url = new URL(value);
+      return ["127.0.0.1", "localhost", "::1"].includes(url.hostname);
+    } catch {
+      return false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -281,10 +293,10 @@
     <form class="connection-form" on:submit|preventDefault={connect}>
       <label for="server-url">接続先</label>
       <div class="inline-row">
-        <input id="server-url" type="url" bind:value={draftBaseUrl} required />
+        <input id="server-url" type="url" bind:value={draftBaseUrl} aria-describedby="server-url-help" required />
         <button type="submit">接続</button>
       </div>
-      <p class="form-help">MacBookからはdesktop PC上の会話サーバーを指定します。例: http://&lt;desktop-pc-lan-ip&gt;:8000</p>
+      <p id="server-url-help" class="form-help">{connectionHelp}</p>
     </form>
 
     <div class="status-grid" aria-label="接続状態">

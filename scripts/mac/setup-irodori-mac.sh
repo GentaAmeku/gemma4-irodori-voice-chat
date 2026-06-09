@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+IRODORI_TTS_SERVER_DIR="${IRODORI_TTS_SERVER_DIR:-"$ROOT_DIR/../Irodori-TTS-Server"}"
+IRODORI_UV_EXTRA="${IRODORI_UV_EXTRA:-cpu}"
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "missing command: $1" >&2
+    exit 1
+  fi
+}
+
+require_command git
+require_command uv
+
+if [ ! -d "$IRODORI_TTS_SERVER_DIR/.git" ]; then
+  git clone https://github.com/Aratako/Irodori-TTS-Server.git "$IRODORI_TTS_SERVER_DIR"
+fi
+
+cd "$IRODORI_TTS_SERVER_DIR"
+uv sync --extra "$IRODORI_UV_EXTRA"
+
+if [ ! -f .env ] && [ -f .env.example ]; then
+  cp .env.example .env
+fi
+
+cat <<EOF
+Irodori-TTS-Server is set up for MacBook local mode:
+  $IRODORI_TTS_SERVER_DIR
+
+Irodori backend:
+  uv extra: $IRODORI_UV_EXTRA
+
+Start it with:
+  ./scripts/mac/start-irodori-mac.sh
+EOF

@@ -16,6 +16,13 @@ GIC_TTS_BASE_URL=http://127.0.0.1:8088
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+MacBookローカルで使う場合は `gemma4:e4b-mlx` を既定にした専用スクリプトを使います。
+このスクリプトはIrodoriの初回モデルロードに備えて `GIC_REQUEST_TIMEOUT_SECONDS=600` を既定にします。
+
+```sh
+../scripts/mac/start-conversation-server-mac.sh
+```
+
 OllamaとIrodori-TTS-Serverをまとめて起動する場合:
 
 ```sh

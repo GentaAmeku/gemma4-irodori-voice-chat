@@ -45,6 +45,29 @@ uv run pytest
 
 公式のOpenAI互換サーバーを別ディレクトリに用意します。
 
+### MacBook Local
+
+開発中のMacBookだけで動かす場合は、Ollama `gemma4:e4b-mlx` とIrodori-TTS-ServerのCPU backendを使う別プロファイルにします。
+
+詳しい手順は [MacBook Local Setup](./docs/macbook-local-setup.md) を参照してください。
+
+```sh
+./scripts/mac/setup-irodori-mac.sh
+./scripts/mac/start-inference-stack-mac.sh
+```
+
+別ターミナルで会話サーバーを起動:
+
+```sh
+./scripts/mac/start-conversation-server-mac.sh
+```
+
+別ターミナルでクライアントを起動:
+
+```sh
+./scripts/mac/start-client-mac.sh
+```
+
 ### Windows AMD / WSL
 
 Windows AMD推論PCでは、WSL2 UbuntuでこのプロジェクトとIrodori-TTS-Serverを動かす構成を標準手順にします。OllamaはWindowsネイティブで起動し、WSL側の会話サーバーから接続します。
@@ -166,6 +189,7 @@ pnpm test:e2e
 - [Design Notes](./docs/design.md)
 - [Verification Guide](./docs/verification.md)
 - [Handoff](./docs/handoff.md)
+- [MacBook Local Setup](./docs/macbook-local-setup.md)
 - [WSL AMD Setup](./docs/wsl-amd-setup.md)
 - [Windows AMD Setup](./docs/windows-amd-setup.md)
 - [Context Glossary](./CONTEXT.md)

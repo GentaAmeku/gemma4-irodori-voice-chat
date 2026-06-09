@@ -15,6 +15,12 @@ pnpm dev
 VITE_GIC_DEFAULT_BASE_URL=http://127.0.0.1:8000 pnpm dev
 ```
 
+MacBookローカル構成では、Windows推論PC接続用の保存値と分けるために専用スクリプトを使います。
+
+```sh
+../scripts/mac/start-client-mac.sh
+```
+
 ## Check
 
 ```sh

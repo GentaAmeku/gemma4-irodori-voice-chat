@@ -15,11 +15,12 @@ Use this skill for setup and troubleshooting work in this repository.
 - Keep Irodori-TTS-Server outside this repository by default, usually as `../Irodori-TTS-Server`.
 - Default Ollama model is `gemma4:12b`; use `GIC_OLLAMA_MODEL` only for overrides.
 - MacBook or other LAN clients connect to the conversation server only, for example `http://<desktop-pc-lan-ip>:8000`; they do not connect directly to Ollama or irodori-TTS.
+- For MacBook local development, keep it as a separate profile: local Ollama model `gemma4:e4b-mlx`, local Irodori-TTS-Server with `cpu` extra by default, local conversation server on `127.0.0.1:8000`, and client started through `scripts/mac/start-client-mac.sh`.
 
 ## Setup workflow
 
 1. Read `docs/wsl-amd-setup.md` before changing setup instructions.
-2. Use `docs/verification.md` for manual verification and `docs/handoff.md` after a session reset.
+2. Use `docs/verification.md` for manual verification and `docs/handoff.md` after a session reset. Read `docs/macbook-local-setup.md` when setting up or debugging MacBook local development.
 3. Keep PowerShell commands and WSL Ubuntu commands clearly separated.
 4. Use `sudo npm install -g pnpm@11.1.2` for pnpm in WSL. Do not reintroduce `corepack enable` or `corepack prepare` as the default path.
 5. Start services in this order:

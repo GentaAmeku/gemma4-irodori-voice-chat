@@ -208,3 +208,29 @@ pnpm test:e2e
 ```
 
 `pnpm test:e2e` はモックサービスで縦切りUIを確認します。実Ollama / 実irodori-TTSの検証は `./scripts/wsl/check-wsl-stack.sh` と手動UI確認で行います。
+
+## 8. MacBookローカル構成の確認
+
+MacBookだけでOllama、Irodori-TTS-Server、会話サーバー、Webクライアントを動かす場合は [MacBook Local Setup](./macbook-local-setup.md) を使います。
+
+起動順:
+
+```bash
+./scripts/mac/start-inference-stack-mac.sh
+./scripts/mac/start-conversation-server-mac.sh
+./scripts/mac/start-client-mac.sh
+```
+
+確認:
+
+```bash
+./scripts/mac/check-mac-stack.sh
+```
+
+期待値:
+
+- `/api/health` の `model` が `gemma4:e4b-mlx`
+- `ollama.ok` が `true`
+- `tts.ok` が `true`
+- UIの接続先が `http://127.0.0.1:8000`
+- テキスト送信後に応答と音声プレイヤーが表示される

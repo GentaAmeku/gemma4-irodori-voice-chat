@@ -24,6 +24,24 @@ MacBook client
 - WSL自体はインストール済み前提。
 - `corepack enable` / `corepack prepare` は使わず、WSLでは `sudo npm install -g pnpm@11.1.2` を使う。
 
+## MacBookローカル開発構成
+
+Windows AMD / WSL構成とは別に、開発中のMacBookだけでも動かせる構成を追加する。
+
+```text
+MacBook client
+  -> MacBook conversation server
+  -> MacBook Ollama gemma4:e4b-mlx
+  -> MacBook Irodori-TTS-Server
+```
+
+重要:
+
+- MacBookローカルではOllamaモデルを `gemma4:e4b-mlx` にする。
+- MacBookローカルではIrodori-TTS-Serverを既定で `cpu` extra起動にする。
+- MacBookローカルでは会話サーバーを `127.0.0.1:8000` で起動し、LAN公開しない。
+- Windows推論PC接続用のクライアント保存値とは別のlocalStorageキーを使う。
+
 ## リポジトリ
 
 - GitHub: https://github.com/GentaAmeku/gemma4-irodori-voice-chat
@@ -78,6 +96,15 @@ WSL標準:
 - `scripts/wsl/start-conversation-server-wsl.sh`
 - `scripts/wsl/check-wsl-stack.sh`
 
+MacBookローカル:
+
+- `scripts/mac/setup-irodori-mac.sh`
+- `scripts/mac/start-inference-stack-mac.sh`
+- `scripts/mac/start-irodori-mac.sh`
+- `scripts/mac/start-conversation-server-mac.sh`
+- `scripts/mac/start-client-mac.sh`
+- `scripts/mac/check-mac-stack.sh`
+
 Windows native fallback:
 
 - `scripts/windows/*.ps1`
@@ -92,6 +119,7 @@ Linux AMD:
 ## 重要ドキュメント
 
 - [Verification Guide](./verification.md)
+- [MacBook Local Setup](./macbook-local-setup.md)
 - [WSL AMD Setup](./wsl-amd-setup.md)
 - [MVP Plan](./mvp-plan.md)
 - [Design Notes](./design.md)
@@ -124,6 +152,12 @@ cd ~/ghq/gemma4-irodori-voice-chat
 ./scripts/wsl/check-wsl-stack.sh
 ```
 
+MacBookローカル実サービス確認:
+
+```bash
+./scripts/mac/check-mac-stack.sh
+```
+
 ## 直近の検証状況
 
 直近の確認では以下が成功済み。
@@ -137,6 +171,12 @@ cd ~/ghq/gemma4-irodori-voice-chat
 - `pnpm build`: success
 - `pnpm test:e2e`: 3 passed
 - `bash -n scripts/wsl/*.sh`: success
+- MacBookローカル `ollama list`: `gemma4:e4b-mlx` installed
+- MacBookローカル `./scripts/mac/setup-irodori-mac.sh`: success
+- MacBookローカル `./scripts/mac/check-mac-stack.sh`: success
+- MacBookローカル Web UI状態表示: 会話サーバー / Ollama / irodori-TTS が接続済み
+- MacBookローカル初回Irodori音声生成: モデルロード込みで約127秒。以後の実測は約46秒。
+- MacBookローカル自動チェック: `uv run pytest` 4 passed / `pnpm check` 0 errors / `pnpm build` success / `pnpm test:e2e` 3 passed / `bash -n scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh` success
 
 ## 次にやる候補
 
@@ -145,9 +185,10 @@ cd ~/ghq/gemma4-irodori-voice-chat
 1. desktop PC側WSLリポジトリへ最新修正を反映し、会話サーバーを再起動する
 2. 返答中表示と新しい人格プロンプトを実機UIで再確認する
 3. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
-4. 失敗時ログとUIメッセージの改善
-5. UIデザイン調整（別エージェント検討中）
-6. 音声入力フェーズ
+4. MacBookローカルIrodoriの生成待ちUI/timeout表示を改善する
+5. 失敗時ログとUIメッセージの改善
+6. UIデザイン調整（別エージェント検討中）
+7. 音声入力フェーズ
    - WebSocket設計
    - ブラウザマイク入力
    - PCM変換
@@ -166,6 +207,8 @@ cd ~/ghq/gemma4-irodori-voice-chat
 - 現状の実機 `/api/speakers` は `none` のみ。声質をキャラクターに寄せるにはIrodori-TTS-Serverへ参照音声を登録する必要がある。
 - `read_aloud_prompt` は将来用のメタデータで、現行Irodori-TTS-Serverのspeech endpointには直接渡していない。
 - Windows AMD環境セットアップやLAN公開の切り分けは `gemma4-windows-amd-setup` skill を使う。
+- MacBookローカル構成は [MacBook Local Setup](./macbook-local-setup.md) を使う。
+- MacBookローカルのIrodori初回生成は長い。会話サーバーはMac用スクリプトで `GIC_REQUEST_TIMEOUT_SECONDS=600` にする。
 - Tauri化はWebクライアントと会話サーバーが安定してから。
 - スマホ実機対応もPC Webの縦切り後。
 
