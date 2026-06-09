@@ -19,14 +19,15 @@ Use this skill for setup and troubleshooting work in this repository.
 ## Setup workflow
 
 1. Read `docs/wsl-amd-setup.md` before changing setup instructions.
-2. Keep PowerShell commands and WSL Ubuntu commands clearly separated.
-3. Use `sudo npm install -g pnpm@11.1.2` for pnpm in WSL. Do not reintroduce `corepack enable` or `corepack prepare` as the default path.
-4. Start services in this order:
+2. Use `docs/verification.md` for manual verification and `docs/handoff.md` after a session reset.
+3. Keep PowerShell commands and WSL Ubuntu commands clearly separated.
+4. Use `sudo npm install -g pnpm@11.1.2` for pnpm in WSL. Do not reintroduce `corepack enable` or `corepack prepare` as the default path.
+5. Start services in this order:
    - Windows Ollama
    - WSL Irodori-TTS-Server: `./scripts/wsl/start-irodori-wsl-amd.sh`
    - WSL conversation server: `./scripts/wsl/start-conversation-server-wsl.sh`
    - WSL client: `cd client && pnpm dev`
-5. Validate with `./scripts/wsl/check-wsl-stack.sh` after services are running.
+6. Validate with `./scripts/wsl/check-wsl-stack.sh` after services are running.
 
 ## Troubleshooting priorities
 

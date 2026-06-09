@@ -164,6 +164,8 @@ pnpm test:e2e
 
 - [MVP Plan](./docs/mvp-plan.md)
 - [Design Notes](./docs/design.md)
+- [Verification Guide](./docs/verification.md)
+- [Handoff](./docs/handoff.md)
 - [WSL AMD Setup](./docs/wsl-amd-setup.md)
 - [Windows AMD Setup](./docs/windows-amd-setup.md)
 - [Context Glossary](./CONTEXT.md)

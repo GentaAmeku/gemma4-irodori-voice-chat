@@ -1,0 +1,189 @@
+# Verification Guide
+
+このドキュメントは、MacBookから同じLAN内のdesktop PC上の会話サーバーへ接続し、テキスト会話と読み上げまで確認するための手順です。
+
+## 前提構成
+
+```text
+MacBook browser / client
+  -> http://<desktop-pc-lan-ip>:8000
+  -> desktop PC WSL conversation server
+  -> Windows Ollama
+  -> WSL irodori-TTS-Server
+```
+
+MacBookからOllamaやirodori-TTSへ直接接続しません。MacBookが接続する先は会話サーバーだけです。
+
+## 1. desktop PC側の起動
+
+Windows PowerShellでOllamaが動いていることを確認します。
+
+```powershell
+ollama list
+```
+
+WSL Ubuntuターミナル1でirodori-TTS-Serverを起動します。
+
+```bash
+cd ~/ghq/gemma4-irodori-voice-chat
+./scripts/wsl/start-irodori-wsl-amd.sh
+```
+
+WSL Ubuntuターミナル2で会話サーバーを起動します。
+
+```bash
+cd ~/ghq/gemma4-irodori-voice-chat
+./scripts/wsl/start-conversation-server-wsl.sh
+```
+
+desktop PC上で疎通確認します。
+
+```bash
+cd ~/ghq/gemma4-irodori-voice-chat
+./scripts/wsl/check-wsl-stack.sh
+```
+
+## 2. LAN公開確認
+
+desktop PCのLAN IPをWindows PowerShellで確認します。
+
+```powershell
+ipconfig
+```
+
+MacBookから会話サーバーのhealthを確認します。
+
+```bash
+curl http://<desktop-pc-lan-ip>:8000/api/health
+```
+
+期待値:
+
+- JSONが返る
+- `server_ok` が `true`
+- `ready` が `true`
+- `model` が `gemma4:12b`
+- `ollama.ok` が `true`
+- `tts.ok` が `true`
+
+WSL2 NAT構成でMacBookから届かない場合は、Windows側でportproxyまたはWSL mirrored networkingを設定します。手順は [WSL AMD Setup](./wsl-amd-setup.md) の「MacBookからdesktop PCへ接続する」を参照してください。
+
+## 3. MacBook側クライアント起動
+
+MacBook側でこのリポジトリを開きます。
+
+```bash
+cd ~/ghq/gemma4-irodori-voice-chat/client
+pnpm install
+pnpm dev
+```
+
+MacBookブラウザで開きます。
+
+```text
+http://127.0.0.1:5173
+```
+
+画面の接続先にdesktop PCの会話サーバーURLを入力します。
+
+```text
+http://<desktop-pc-lan-ip>:8000
+```
+
+## 4. UIで確認する項目
+
+接続後、左側の接続状態パネルを確認します。
+
+- 会話サーバー: 接続済み
+- Ollama: 接続済み
+- irodori-TTS: 接続済み
+
+テキスト入力で短い発話を送ります。
+
+```text
+こんにちは。短く返事してください。
+```
+
+期待値:
+
+- ユーザー発話が履歴に表示される
+- AI応答が履歴に表示される
+- 最後の読み上げプレイヤーが表示される
+- 履歴内のAI応答にも音声プレイヤーが表示される
+- 自動再生がブラウザに止められた場合でも、手動再生できる
+
+## 5. 設定操作の確認
+
+Optionsを開きます。
+
+確認項目:
+
+- キャラクター名を編集できる
+- キャラクター設定を編集できる
+- 読み上げ設定を編集できる
+- 話者を選択できる
+- 保存すると履歴がクリアされる
+- 履歴クリアボタンで履歴がクリアされる
+- キャラクター画像をアップロードできる
+
+## 6. 失敗時の切り分け
+
+### MacBookからhealthが返らない
+
+確認:
+
+- desktop PCのLAN IPが正しいか
+- 会話サーバーが `--host 0.0.0.0 --port 8000` で起動しているか
+- Windows FirewallがPrivate networkでport 8000を許可しているか
+- WSL2 NATの場合、portproxyが設定されているか
+
+### UIでOllamaだけ要確認になる
+
+desktop PCのWSL Ubuntuで確認:
+
+```bash
+curl http://127.0.0.1:11434/api/tags
+```
+
+失敗する場合:
+
+```bash
+WINDOWS_HOST="$(ip route show default | awk '{print $3; exit}')"
+curl "http://${WINDOWS_HOST}:11434/api/tags"
+```
+
+### UIでirodori-TTSだけ要確認になる
+
+desktop PCのWSL Ubuntuで確認:
+
+```bash
+curl http://127.0.0.1:8088/health
+curl http://127.0.0.1:8088/v1/audio/voices
+```
+
+### テキスト送信後に音声だけ出ない
+
+確認:
+
+- 応答テキストが表示されているか
+- 最後の読み上げプレイヤーに音声URLが入っているか
+- ブラウザの自動再生制限で止まっていないか
+- irodori-TTSの起動ログにエラーが出ていないか
+
+## 7. 自動テスト
+
+MacBookまたは開発機で実行します。
+
+```bash
+cd server
+uv run pytest
+```
+
+```bash
+cd client
+pnpm check
+pnpm build
+pnpm test:e2e
+```
+
+`pnpm test:e2e` はモックサービスで縦切りUIを確認します。実Ollama / 実irodori-TTSの検証は `./scripts/wsl/check-wsl-stack.sh` と手動UI確認で行います。
