@@ -1,11 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OLLAMA_BASE_URL="${GIC_OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
+resolve_ollama_base_url() {
+  if [ -n "${GIC_OLLAMA_BASE_URL:-}" ]; then
+    echo "$GIC_OLLAMA_BASE_URL"
+    return
+  fi
+
+  if curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    echo "http://127.0.0.1:11434"
+    return
+  fi
+
+  local windows_host
+  windows_host="$(ip route show default | awk '{print $3; exit}')"
+  if [ -z "$windows_host" ]; then
+    echo "Could not resolve Windows host IP. Set GIC_OLLAMA_BASE_URL manually." >&2
+    exit 1
+  fi
+  echo "http://${windows_host}:11434"
+}
+
+OLLAMA_BASE_URL="$(resolve_ollama_base_url)"
 TTS_BASE_URL="${GIC_TTS_BASE_URL:-http://127.0.0.1:8088}"
 APP_BASE_URL="${GIC_APP_BASE_URL:-http://127.0.0.1:8000}"
 
 echo "Checking Ollama..."
+echo "$OLLAMA_BASE_URL"
 curl -fsS "$OLLAMA_BASE_URL/api/tags"
 echo
 
