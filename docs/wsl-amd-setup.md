@@ -11,6 +11,18 @@ Windows AMD推論PCでは、この手順を推奨します。
 
 この構成にする理由は、Irodori-TTS-Serverの `rocm` extraがLinux向けで、WindowsネイティブよりWSL2 Ubuntuの方がROCm/PyTorchの前提に近いためです。ただし、ROCm on WSLはGPU、Windowsドライバ、WSL、Ubuntu versionの互換条件に強く依存します。Irodoriのセットアップ前にAMD公式の互換表とWSL手順を確認してください。
 
+## 前提
+
+この手順では、Windows PCにWSL2 Ubuntuがインストール済みであることを前提にします。WSL自体のインストールはプロジェクトのセットアップ範囲外です。
+
+推奨:
+
+- Windows 11
+- WSL2
+- Ubuntu 24.04 または Ubuntu 22.04
+- Windows側にOllama
+- WSL Ubuntu側にこのリポジトリ、会話サーバー、Irodori-TTS-Server
+
 ## 事前に知っておくこと
 
 PowerShellで実行するコマンドと、WSL Ubuntuで実行するコマンドを混ぜないでください。
@@ -33,24 +45,15 @@ WSL Ubuntu:
   /mnt/c/Users/<User>/...
 ```
 
-## 1. Windows側でWSLを用意する
+## 1. WSL状態確認
 
-管理者PowerShellでWSLを入れます。
-
-```powershell
-wsl --install -d Ubuntu-24.04
-wsl --update
-```
-
-PCを再起動し、Ubuntuを初回起動してLinuxユーザー名とパスワードを作成します。
-
-WSLの状態確認:
+Windows PowerShellで確認します。
 
 ```powershell
 wsl --list --verbose
 ```
 
-`Ubuntu-24.04` が `VERSION 2` になっていることを確認します。もし `1` の場合:
+Ubuntuが `VERSION 2` になっていることを確認します。もし `1` の場合だけ、PowerShellで変換します。
 
 ```powershell
 wsl --set-version Ubuntu-24.04 2
@@ -130,8 +133,7 @@ sudo apt install -y git curl build-essential
 curl -LsSf https://astral.sh/uv/install.sh | sh
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
-corepack enable
-corepack prepare pnpm@11.1.2 --activate
+sudo npm install -g pnpm@11.1.2
 ```
 
 新しいシェルを開き直し、確認します。
@@ -386,6 +388,7 @@ wsl -d Ubuntu-24.04
 
 - ROCm on WSLの対応GPU、Windows driver、Ubuntu versionはAMDの互換表に依存します。
 - `uv sync --extra rocm` が失敗する場合は、ROCm/WSL側の前提が未整備です。
+- `corepack enable` / `corepack prepare` はWindows/WSLのNode.js導入経路によって失敗することがあるため、この手順では使いません。
 - まずWindowsネイティブOllama + WSL Irodori + WSL会話サーバーで成功させ、その後に構成を単純化するか判断します。
 
 ## 参考

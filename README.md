@@ -45,17 +45,17 @@ uv run pytest
 
 公式のOpenAI互換サーバーを別ディレクトリに用意します。
 
-### Windows AMD
+### Windows AMD / WSL
 
-Windows AMD推論PCでは、WSL2 UbuntuでこのプロジェクトとIrodori-TTS-Serverを動かす構成を推奨します。OllamaはまずWindowsネイティブで起動し、WSL側の会話サーバーから接続します。
+Windows AMD推論PCでは、WSL2 UbuntuでこのプロジェクトとIrodori-TTS-Serverを動かす構成を標準手順にします。OllamaはWindowsネイティブで起動し、WSL側の会話サーバーから接続します。
 
 詳しい手順は [WSL AMD Setup](./docs/wsl-amd-setup.md) を参照してください。
 
-Windowsネイティブのみで進める場合は、Irodori-TTS-ServerをCPU backendで動かすフォールバック手順として [Windows AMD Setup](./docs/windows-amd-setup.md) を参照してください。
+この手順では、WSL2 Ubuntuがインストール済みであることを前提にします。WSL自体のインストールはプロジェクトのセットアップ範囲外です。
 
 ### Windows Native Fallback
 
-Windowsネイティブのみで進める場合、OllamaはAMD Radeon GPU対応のネイティブアプリとして使います。一方で、Irodori-TTS-Serverの `rocm` extraは公式README上ではLinux向けです。WindowsではCPU backendでIrodoriを動かします。
+Windowsネイティブのみで進める手順は標準ではありません。必要な場合だけ、Irodori-TTS-ServerをCPU backendで動かすフォールバックとして使います。
 
 詳しい手順は [Windows AMD Setup](./docs/windows-amd-setup.md) を参照してください。
 
@@ -167,3 +167,7 @@ pnpm test:e2e
 - [WSL AMD Setup](./docs/wsl-amd-setup.md)
 - [Windows AMD Setup](./docs/windows-amd-setup.md)
 - [Context Glossary](./CONTEXT.md)
+
+## Agent Skills
+
+- [Gemma4 Irodori Setup](./.agents/skills/gemma4-irodori-setup/SKILL.md): Windows AMD / WSLセットアップ支援用のCodexスキル。
