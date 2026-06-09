@@ -93,7 +93,7 @@ winget install Ollama.Ollama
 新しいPowerShellを開き直して、Ollamaモデルを入れます。
 
 ```powershell
-ollama pull gemma4:e4b-mlx
+ollama pull gemma4:12b
 ollama list
 ```
 
@@ -193,10 +193,10 @@ cd ~/ghq/gemma4-irodori-voice-chat
 ./scripts/wsl/start-conversation-server-wsl.sh
 ```
 
-Ollamaモデルを変える場合:
+軽量モデルなどへ変える場合:
 
 ```bash
-GIC_OLLAMA_MODEL=gemma4:12b ./scripts/wsl/start-conversation-server-wsl.sh
+GIC_OLLAMA_MODEL=gemma4:e4b-mlx ./scripts/wsl/start-conversation-server-wsl.sh
 ```
 
 起動確認:

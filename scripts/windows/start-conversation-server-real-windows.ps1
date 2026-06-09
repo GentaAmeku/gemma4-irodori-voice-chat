@@ -1,6 +1,6 @@
 param(
   [string]$OllamaHost = "127.0.0.1:11434",
-  [string]$OllamaModel = "gemma4:e4b-mlx",
+  [string]$OllamaModel = "gemma4:12b",
   [string]$TtsBaseUrl = "http://127.0.0.1:8088"
 )
 

@@ -16,7 +16,7 @@ test("connects to the mock conversation server and completes a text turn", async
   await page.goto("/");
 
   await expect(page.locator("#character-title")).toHaveText("リノン");
-  await expect(page.getByText("gemma4:e4b-mlx / mock")).toBeVisible();
+  await expect(page.getByText("gemma4:12b / mock")).toBeVisible();
   await expect(page.getByText("接続しました")).toBeVisible();
 
   await page.getByLabel("テキスト入力").fill("クライアントE2Eの確認です");

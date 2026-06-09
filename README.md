@@ -29,7 +29,7 @@ Ollama / irodori-TTS を使う場合:
 ```sh
 cd server
 GIC_OLLAMA_BASE_URL=http://127.0.0.1:11434 \
-GIC_OLLAMA_MODEL=gemma4:e4b-mlx \
+GIC_OLLAMA_MODEL=gemma4:12b \
 GIC_TTS_BASE_URL=http://127.0.0.1:8088 \
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```

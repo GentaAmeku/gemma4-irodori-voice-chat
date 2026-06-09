@@ -33,7 +33,7 @@ Ollamaを入れた後、新しいPowerShellを開き直します。
 ## 2. Ollamaモデル
 
 ```powershell
-ollama pull gemma4:e4b-mlx
+ollama pull gemma4:12b
 ollama list
 ```
 
@@ -69,7 +69,7 @@ ollama list
 モデルを変える場合:
 
 ```powershell
-.\scripts\windows\start-conversation-server-real-windows.ps1 -OllamaModel gemma4:12b
+.\scripts\windows\start-conversation-server-real-windows.ps1 -OllamaModel gemma4:e4b-mlx
 ```
 
 ## 6. 疎通確認

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-GIC_OLLAMA_MODEL="${GIC_OLLAMA_MODEL:-gemma4:e4b-mlx}"
+GIC_OLLAMA_MODEL="${GIC_OLLAMA_MODEL:-gemma4:12b}"
 GIC_TTS_BASE_URL="${GIC_TTS_BASE_URL:-http://127.0.0.1:8088}"
 
 resolve_ollama_host() {
