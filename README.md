@@ -47,7 +47,15 @@ uv run pytest
 
 ### Windows AMD
 
-Windowsでは、OllamaはAMD Radeon GPU対応のネイティブアプリとして使います。一方で、Irodori-TTS-Serverの `rocm` extraは公式README上ではLinux向けです。WindowsではまずCPU backendでIrodoriを動かし、実接続を成立させます。
+Windows AMD推論PCでは、WSL2 UbuntuでこのプロジェクトとIrodori-TTS-Serverを動かす構成を推奨します。OllamaはまずWindowsネイティブで起動し、WSL側の会話サーバーから接続します。
+
+詳しい手順は [WSL AMD Setup](./docs/wsl-amd-setup.md) を参照してください。
+
+Windowsネイティブのみで進める場合は、Irodori-TTS-ServerをCPU backendで動かすフォールバック手順として [Windows AMD Setup](./docs/windows-amd-setup.md) を参照してください。
+
+### Windows Native Fallback
+
+Windowsネイティブのみで進める場合、OllamaはAMD Radeon GPU対応のネイティブアプリとして使います。一方で、Irodori-TTS-Serverの `rocm` extraは公式README上ではLinux向けです。WindowsではCPU backendでIrodoriを動かします。
 
 詳しい手順は [Windows AMD Setup](./docs/windows-amd-setup.md) を参照してください。
 
@@ -156,5 +164,6 @@ pnpm test:e2e
 
 - [MVP Plan](./docs/mvp-plan.md)
 - [Design Notes](./docs/design.md)
+- [WSL AMD Setup](./docs/wsl-amd-setup.md)
 - [Windows AMD Setup](./docs/windows-amd-setup.md)
 - [Context Glossary](./CONTEXT.md)
