@@ -138,6 +138,7 @@ Linux AMD:
 
 ## 重要ドキュメント
 
+- [Architecture Overview](./architecture.md)
 - [Verification Guide](./verification.md)
 - [Reference Voice Setup](./reference-voice-setup.md)
 - [Irodori No-Reference Voice Setup](./no-ref-voice-setup.md)
