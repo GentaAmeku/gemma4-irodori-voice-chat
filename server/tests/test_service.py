@@ -7,7 +7,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters import IrodoriTtsClient, OllamaClient, SttClient
+from app.adapters import IrodoriTtsClient, OllamaClient
 from app.config import AppConfig
 from app.main import create_app
 from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
@@ -216,67 +216,6 @@ def test_register_speaker_endpoint_rejects_invalid_input(tmp_path: Path) -> None
     assert invalid_id.json()["detail"] == "invalid_speaker_id"
     assert invalid_type.status_code == 400
     assert invalid_type.json()["detail"] == "unsupported_voice_type"
-
-
-@pytest.mark.asyncio
-async def test_stt_transcribe_posts_multipart_and_parses_text(tmp_path: Path) -> None:
-    captured: dict[str, object] = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/v1/audio/transcriptions" and request.method == "POST":
-            captured["content_type"] = request.headers["content-type"]
-            captured["body"] = request.content
-            return httpx.Response(200, json={"text": "  こんにちは。  "})
-        return httpx.Response(404)
-
-    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
-    transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport) as http_client:
-        text = await SttClient(config, http_client).transcribe("speech.wav", b"RIFFdata", "audio/wav")
-
-    assert text == "こんにちは。"
-    assert "multipart/form-data" in str(captured["content_type"])
-    assert b'filename="speech.wav"' in captured["body"]
-    assert b"RIFFdata" in captured["body"]
-    assert b'name="model"' in captured["body"]
-    assert b"whisper-1" in captured["body"]
-    assert b'name="language"' in captured["body"]
-
-
-def test_stt_endpoint_with_mock_services(tmp_path: Path) -> None:
-    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
-
-    with TestClient(app) as client:
-        response = client.post("/api/stt", files={"file": ("speech.wav", b"RIFF", "audio/wav")})
-
-    assert response.status_code == 200
-    assert response.json() == {"text": "音声入力のモック文字起こしです。"}
-
-
-def test_stt_endpoint_rejects_invalid_audio(tmp_path: Path) -> None:
-    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
-
-    with TestClient(app) as client:
-        empty = client.post("/api/stt", files={"file": ("speech.wav", b"", "audio/wav")})
-        bad_type = client.post("/api/stt", files={"file": ("note.txt", b"hello", "text/plain")})
-
-    assert empty.status_code == 400
-    assert empty.json()["detail"] == "empty_audio"
-    assert bad_type.status_code == 400
-    assert bad_type.json()["detail"] == "unsupported_audio_type"
-
-
-def test_health_reports_stt_with_mock_services(tmp_path: Path) -> None:
-    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
-
-    with TestClient(app) as client:
-        response = client.get("/api/health")
-
-    body = response.json()
-    assert response.status_code == 200
-    assert body["stt"]["ok"] is True
-    assert body["ready"] is True
-    assert "stt_base_url" in body
 
 
 @pytest.mark.asyncio

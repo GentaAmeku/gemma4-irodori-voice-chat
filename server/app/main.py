@@ -12,9 +12,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
 
-from .adapters import IrodoriTtsClient, OllamaClient, SttClient
+from .adapters import IrodoriTtsClient, OllamaClient
 from .config import AppConfig, load_config
-from .models import AppSettings, HealthResponse, HistoryResponse, SpeakerOption, SttResponse, TextTurnRequest
+from .models import AppSettings, HealthResponse, HistoryResponse, SpeakerOption, TextTurnRequest
 from .service import ConversationBusyError, ConversationService
 from .storage import ConversationHistory, SettingsStore
 
@@ -22,20 +22,6 @@ from .storage import ConversationHistory, SettingsStore
 VOICE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 ALLOWED_VOICE_SUFFIXES = {".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".webm"}
 MAX_REFERENCE_VOICE_BYTES = 50 * 1024 * 1024
-
-# 音声入力(STT)用のアップロード制約。短い発話を想定し、参照音声より小さめに絞る。
-ALLOWED_STT_CONTENT_TYPES = {
-    "audio/wav",
-    "audio/x-wav",
-    "audio/webm",
-    "audio/ogg",
-    "audio/mpeg",
-    "audio/mp4",
-    "audio/m4a",
-    "audio/x-m4a",
-    "audio/flac",
-}
-MAX_STT_AUDIO_BYTES = 25 * 1024 * 1024
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:
@@ -51,13 +37,11 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             history = ConversationHistory()
             ollama = OllamaClient(app_config, client)
             tts = IrodoriTtsClient(app_config, client)
-            stt = SttClient(app_config, client)
             app.state.config = app_config
             app.state.settings_store = settings_store
             app.state.history = history
             app.state.ollama = ollama
             app.state.tts = tts
-            app.state.stt = stt
             app.state.conversation_service = ConversationService(settings_store, history, ollama, tts)
             yield
 
@@ -75,8 +59,6 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     async def health() -> HealthResponse:
         ollama_status = await app.state.ollama.health()
         tts_status = await app.state.tts.health()
-        stt_status = await app.state.stt.health()
-        # STTは音声入力専用で、テキスト会話には不要。ready の判定には含めない。
         ready = ollama_status.ok and tts_status.ok
         return HealthResponse(
             server_ok=True,
@@ -84,11 +66,9 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             model=app.state.config.ollama_model,
             ollama_base_url=app.state.config.ollama_base_url,
             tts_base_url=app.state.config.tts_base_url,
-            stt_base_url=app.state.config.stt_base_url,
             mock_services=app.state.config.mock_services,
             ollama=ollama_status,
             tts=tts_status,
-            stt=stt_status,
         )
 
     @app.get("/api/settings", response_model=AppSettings)
@@ -150,27 +130,6 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             return await app.state.conversation_service.text_turn(request.text.strip())
         except ConversationBusyError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    @app.post("/api/stt", response_model=SttResponse)
-    async def transcribe(file: UploadFile = File(...)) -> SttResponse:
-        content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
-        if content_type not in ALLOWED_STT_CONTENT_TYPES:
-            raise HTTPException(status_code=400, detail="unsupported_audio_type")
-
-        content = await file.read(MAX_STT_AUDIO_BYTES + 1)
-        if len(content) > MAX_STT_AUDIO_BYTES:
-            raise HTTPException(status_code=413, detail="audio_too_large")
-        if not content:
-            raise HTTPException(status_code=400, detail="empty_audio")
-
-        filename = Path(file.filename or "audio").name or "audio"
-        try:
-            text = await app.state.stt.transcribe(filename, content, content_type)
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=502, detail="stt_transcription_failed") from exc
-        except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail="stt_unreachable") from exc
-        return SttResponse(text=text)
 
     @app.get("/api/character-image")
     async def get_character_image():

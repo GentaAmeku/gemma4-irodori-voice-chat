@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 GIC_OLLAMA_MODEL="${GIC_OLLAMA_MODEL:-gemma4:12b}"
 GIC_TTS_BASE_URL="${GIC_TTS_BASE_URL:-http://127.0.0.1:8088}"
-GIC_STT_BASE_URL="${GIC_STT_BASE_URL:-http://127.0.0.1:8099}"
 
 resolve_ollama_host() {
   if [ -n "${OLLAMA_HOST:-}" ]; then
@@ -31,10 +30,8 @@ OLLAMA_HOST_VALUE="$(resolve_ollama_host)"
 cd "$ROOT_DIR/server"
 
 echo "Using Ollama: http://$OLLAMA_HOST_VALUE"
-echo "Using STT: $GIC_STT_BASE_URL"
 
 GIC_OLLAMA_BASE_URL="http://$OLLAMA_HOST_VALUE" \
 GIC_OLLAMA_MODEL="$GIC_OLLAMA_MODEL" \
 GIC_TTS_BASE_URL="$GIC_TTS_BASE_URL" \
-GIC_STT_BASE_URL="$GIC_STT_BASE_URL" \
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000

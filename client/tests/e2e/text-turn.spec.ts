@@ -117,7 +117,6 @@ test("shows a dependency-specific connection error", async ({ page }) => {
         mock_services: true,
         ollama: { ok: false, detail: "connection refused" },
         tts: { ok: true, detail: null },
-        stt: { ok: true, detail: null },
       }),
     });
   });

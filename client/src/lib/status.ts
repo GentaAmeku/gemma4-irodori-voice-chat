@@ -26,7 +26,6 @@ export function buildStatusItems(
       { label: "会話サーバー", state: displayState === "connecting" ? "unknown" : "error", detail: baseUrl },
       { label: "Ollama", state: "unknown", detail: "未確認" },
       { label: "irodori-TTS", state: "unknown", detail: "未確認" },
-      { label: "音声入力STT", state: "unknown", detail: "未確認" },
     ];
   }
   return [
@@ -42,17 +41,6 @@ export function buildStatusItems(
       label: "irodori-TTS",
       state: health.tts.ok ? "ok" : "error",
       detail: health.tts.ok ? (health.tts_base_url ?? "接続済み") : (health.tts.detail ?? "利用できません"),
-    },
-    {
-      // 音声入力専用。テキスト会話には不要なため、未接続でも会話の可否には影響しない。
-      // 未更新の会話サーバーは stt を返さないため、その場合は未確認扱いにする。
-      label: "音声入力STT",
-      state: health.stt ? (health.stt.ok ? "ok" : "error") : "unknown",
-      detail: health.stt
-        ? health.stt.ok
-          ? (health.stt_base_url ?? "接続済み")
-          : (health.stt.detail ?? "音声入力は任意です")
-        : "未確認（サーバー未対応の可能性）",
     },
   ];
 }

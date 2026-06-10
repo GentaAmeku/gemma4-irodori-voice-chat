@@ -23,7 +23,6 @@ resolve_ollama_base_url() {
 
 OLLAMA_BASE_URL="$(resolve_ollama_base_url)"
 TTS_BASE_URL="${GIC_TTS_BASE_URL:-http://127.0.0.1:8088}"
-STT_BASE_URL="${GIC_STT_BASE_URL:-http://127.0.0.1:8099}"
 APP_BASE_URL="${GIC_APP_BASE_URL:-http://127.0.0.1:8000}"
 
 echo "Checking Ollama..."
@@ -37,10 +36,6 @@ echo
 
 echo "Checking Irodori-TTS-Server voices..."
 curl -fsS "$TTS_BASE_URL/v1/audio/voices"
-echo
-
-echo "Checking STT server health (音声入力は任意)..."
-curl -fsS "$STT_BASE_URL/health" || echo "STT server not reachable (voice input disabled)"
 echo
 
 echo "Checking conversation server health..."

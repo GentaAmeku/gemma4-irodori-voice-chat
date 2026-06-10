@@ -4,7 +4,7 @@
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
   import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
   import { loadPrefs, savePrefs, TONE_PRESETS } from "./lib/prefs";
-  import { isMicCaptureSupported, micErrorMessage, startMicRecording, type MicRecorder } from "./lib/speech";
+  import { createSpeechRecognition, isSpeechRecognitionSupported, speechErrorMessage } from "./lib/speech";
   import AudioChip from "./lib/AudioChip.svelte";
   import CharacterRail from "./lib/CharacterRail.svelte";
   import Icon from "./lib/Icon.svelte";
@@ -46,12 +46,11 @@
   let uploadingImage = $state(false);
   let activeConversation = $state<ActiveConversation | null>(null);
 
-  // 音声入力(マイク録音 → サーバーSTT)。未対応・非セキュアコンテキストではマイクを無効化する。
-  const micSupported = isMicCaptureSupported();
+  // 音声入力(SpeechRecognition)。未対応ブラウザではマイクを無効化する。
+  const speechSupported = isSpeechRecognitionSupported();
   let recording = $state(false);
-  let transcribing = $state(false);
-  let micRecorder: MicRecorder | null = null;
-  let sttBaseText = ""; // 録音開始時点で入力欄にあったテキスト
+  let recognition: SpeechRecognition | null = null;
+  let speechBaseText = ""; // 録音開始時点で入力欄にあったテキスト
 
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
@@ -81,22 +80,14 @@
     conversationStage === "synthesizing" ? `${characterName}が読み上げ準備中…` : `${characterName}が返答生成中…`,
   );
   const micLabel = $derived(
-    !micSupported
-      ? "音声入力（このブラウザ・接続では非対応）"
-      : transcribing
-        ? "文字起こし中…"
-        : recording
-          ? "録音を停止して文字起こし"
-          : "音声入力を開始",
+    !speechSupported ? "音声入力（このブラウザは非対応）" : recording ? "音声入力を停止" : "音声入力を開始",
   );
   const composerPlaceholder = $derived(
     displayState === "conversing"
       ? `${characterName}が返答を準備中です…`
-      : transcribing
-        ? "文字起こし中…"
-        : recording
-          ? "録音中… 話し終えたらマイクをもう一度押してください"
-          : "話しかけてください…",
+      : recording
+        ? "聞き取り中… 話し終えたらマイクをもう一度押してください"
+        : "話しかけてください…",
   );
 
   onMount(() => {
@@ -156,7 +147,7 @@
 
   async function sendTextTurn() {
     if (recording) {
-      cancelRecording();
+      stopSpeech();
     }
     const text = textInput.trim();
     if (!text || displayState !== "ready") {
@@ -326,83 +317,75 @@
     statusMessage = "自動再生できませんでした。メッセージの再生ボタンから再生してください。";
   }
 
-  function toggleRecording() {
-    if (transcribing) {
+  function toggleSpeech() {
+    if (!speechSupported || displayState !== "ready") {
       return;
     }
     if (recording) {
-      void stopAndTranscribe();
-    } else if (micSupported && displayState === "ready") {
-      void startRecording();
+      stopSpeech();
+    } else {
+      startSpeech();
     }
   }
 
-  async function startRecording() {
-    errorMessage = "";
-    try {
-      micRecorder = await startMicRecording();
-      sttBaseText = textInput;
-      recording = true;
-      statusMessage = "録音中… もう一度マイクを押すと文字起こしします";
-    } catch (error) {
-      micRecorder = null;
-      recording = false;
-      statusMessage = micErrorMessage(error);
-    }
-  }
-
-  async function stopAndTranscribe() {
-    const recorder = micRecorder;
-    micRecorder = null;
-    recording = false;
-    if (!recorder) {
+  function startSpeech() {
+    const next = createSpeechRecognition("ja-JP");
+    if (!next) {
       return;
     }
-    transcribing = true;
-    statusMessage = "文字起こし中…";
-    let failureMessage = "";
-    try {
-      const { blob, filename } = await recorder.stop();
-      const result = await api.stt(baseUrl, blob, filename);
-      const text = result.text.trim();
-      if (text) {
-        // 録音開始時のテキストに認識結果を続ける
-        textInput = joinSpeechText(sttBaseText, text);
-      } else {
-        failureMessage = "音声を聞き取れませんでした。もう一度お試しください。";
+    recognition = next;
+    speechBaseText = textInput;
+    let finalText = "";
+    errorMessage = "";
+    next.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) {
+          finalText += transcript;
+        } else {
+          interim += transcript;
+        }
       }
-    } catch (error) {
-      failureMessage = formatSttError(error);
-    } finally {
-      transcribing = false;
-      statusMessage = failureMessage;
+      // 録音中は確定テキスト + 未確定テキストをライブ表示する
+      textInput = joinSpeechText(speechBaseText, finalText + interim);
+    };
+    next.onerror = (event) => {
+      const message = speechErrorMessage(event.error);
+      if (message) {
+        statusMessage = message;
+      }
+      stopSpeech();
+    };
+    next.onend = () => {
+      recording = false;
+      recognition = null;
+      statusMessage = "";
       textareaEl?.focus();
+    };
+    try {
+      next.start();
+      recording = true;
+      statusMessage = "音声を聞き取り中…";
+    } catch {
+      // start の二重呼び出しなどは無視して状態を戻す
+      recording = false;
+      recognition = null;
     }
   }
 
-  function cancelRecording() {
-    micRecorder?.cancel();
-    micRecorder = null;
+  function stopSpeech() {
+    const current = recognition;
+    recognition = null;
     recording = false;
-  }
-
-  // STTエンドポイント固有のエラーを日本語の案内に変換する。
-  function formatSttError(error: unknown): string {
-    if (error instanceof ApiError) {
-      switch (error.message) {
-        case "stt_unreachable":
-          return "音声入力サーバー(STT)に接続できませんでした。STTサービスの起動を確認してください。";
-        case "stt_transcription_failed":
-          return "文字起こしに失敗しました。もう一度お試しください。";
-        case "unsupported_audio_type":
-          return "この音声形式は対応していません。";
-        case "audio_too_large":
-          return "録音が長すぎます。短く区切ってお試しください。";
-        case "empty_audio":
-          return "音声を聞き取れませんでした。もう一度お試しください。";
-      }
+    if (current) {
+      // onend での再代入(未確定テキストの破棄)を避けるためハンドラを外してから止める
+      current.onresult = null;
+      current.onerror = null;
+      current.onend = null;
+      current.stop();
     }
-    return formatError(error);
   }
 
   // 既存テキストに認識結果を続ける。語の境界に空白がなければ半角スペースを挟む。
@@ -629,13 +612,11 @@
           type="button"
           class="icon-btn mic"
           class:recording
-          class:transcribing
-          disabled={!micSupported || transcribing || (displayState !== "ready" && !recording)}
+          disabled={!speechSupported || displayState !== "ready"}
           aria-pressed={recording}
-          aria-busy={transcribing}
           title={micLabel}
           aria-label={micLabel}
-          onclick={toggleRecording}
+          onclick={toggleSpeech}
         >
           <Icon name="mic" />
         </button>
@@ -646,7 +627,7 @@
           placeholder={composerPlaceholder}
           aria-label="テキスト入力"
           disabled={displayState === "conversing"}
-          readonly={recording || transcribing}
+          readonly={recording}
           onkeydown={onComposerKeydown}
           oninput={autoGrow}
         ></textarea>
