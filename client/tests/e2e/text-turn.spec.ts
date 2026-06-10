@@ -128,6 +128,23 @@ test("shows a dependency-specific connection error", async ({ page }) => {
   await expect(page.locator(".status-item").filter({ hasText: "Ollama" }).getByText("要確認")).toBeVisible();
 });
 
+test("shows a cause-specific message when a text turn fails", async ({ page }) => {
+  await page.route("http://127.0.0.1:8000/api/turns/text", async (route) => {
+    await route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "llm_unavailable" }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("テキスト入力").fill("失敗するはずの発話です");
+  await page.getByRole("button", { name: "送信" }).click();
+
+  await expect(page.getByText("失敗するはずの発話です", { exact: true })).toBeVisible();
+  await expect(page.locator(".bubble.error")).toContainText("AI（Ollama）に接続できませんでした");
+});
+
 test("does not autoplay audio when autoplay is disabled", async ({ page }) => {
   await page.goto("/");
 

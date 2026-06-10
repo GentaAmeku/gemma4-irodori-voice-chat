@@ -15,13 +15,22 @@ import httpx
 from .adapters import IrodoriTtsClient, OllamaClient
 from .config import AppConfig, load_config
 from .models import AppSettings, HealthResponse, HistoryResponse, SpeakerOption, TextTurnRequest
-from .service import ConversationBusyError, ConversationService
+from .service import ConversationBusyError, ConversationService, TurnFailedError
 from .storage import ConversationHistory, SettingsStore
 
 
 VOICE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 ALLOWED_VOICE_SUFFIXES = {".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".webm"}
 MAX_REFERENCE_VOICE_BYTES = 50 * 1024 * 1024
+
+# 会話ターン失敗コード -> HTTPステータス。timeout は 504、依存先不通・空応答は 502。
+TURN_ERROR_STATUS = {
+    "llm_timeout": 504,
+    "tts_timeout": 504,
+    "llm_unavailable": 502,
+    "tts_unavailable": 502,
+    "llm_empty": 502,
+}
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:
@@ -130,6 +139,8 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             return await app.state.conversation_service.text_turn(request.text.strip())
         except ConversationBusyError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except TurnFailedError as exc:
+            raise HTTPException(status_code=TURN_ERROR_STATUS.get(exc.code, 502), detail=exc.code) from exc
 
     @app.get("/api/character-image")
     async def get_character_image():

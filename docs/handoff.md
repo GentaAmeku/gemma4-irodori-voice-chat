@@ -72,6 +72,7 @@ MacBook client
 - 口調プリセット `tone_preset` と距離感 `distance` の設定保存、Ollama system promptへの合成
 - 会話サーバー経由の参照音声アップロードとIrodori話者登録（MVP UIでは未使用）
 - busy制御
+- 会話ターン失敗の構造化エラー（`llm_timeout` / `llm_unavailable` / `llm_empty` / `tts_timeout` / `tts_unavailable`）。`/api/turns/text` は段階・原因別に 502/504 を返し、`gic.conversation` ロガーへ警告ログを出す
 - 設定保存時の履歴クリア
 - キャラクター画像アップロード
 - モックサービス
@@ -99,7 +100,7 @@ MacBook client
 - 話者選択はMVP UIから削除。読み上げは `speaker_id: "none"` とIrodori-TTS-Server側no-refカスタマイズを使う
 - 設定パネルのフォーム説明 `aria-describedby` 紐付け
 - 設定の自動保存 / 接続確認 / 画像アップロード / 履歴クリア中の二重送信防止
-- 会話サーバー未接続 / Ollama不可 / irodori-TTS不可 / TTS timeout / 自動再生失敗の原因別エラー表示
+- 会話サーバー未接続 / Ollama不可 / irodori-TTS不可 / タイムアウト / 自動再生失敗の原因別エラー表示（会話ターン失敗はサーバーの失敗コード別に文言を出し分け）
 - 長時間生成向けの待機表示（返答生成中 -> 読み上げ準備中）
 - 履歴クリア
 - キャラクター画像アップロード
@@ -280,6 +281,7 @@ MacBookローカル実サービス確認:
 - コミット `cdffa80` 後のローカル検証: `pnpm -C client check` 0 errors / `pnpm -C client build` success / `pnpm -C client test:e2e` 7 passed / `server` で `uv run pytest` 12 passed
 - 一時的にサーバー側STT（faster-whisper）を実装（コミット `01be1b5`）したが、認識相違により revert。音声入力は Web Speech API のまま継続する。「LAN限定」はLLM推論・会話サーバー経路の話で、音声がChrome経由で外部音声認識（Google等）に渡るのは許容、というのが正しい意図
 - revert 後のローカル検証: `server` で `uv run pytest` / `pnpm -C client check` / `pnpm -C client build` / `pnpm -C client test:e2e`（結果は revert コミットに記録）
+- 失敗時ログ/UIメッセージ改善: 会話ターン失敗を段階別の構造化エラー（502/504 + `llm_*`/`tts_*` コード）＋サーバーログ（`gic.conversation`）化し、クライアントは原因別メッセージを表示。検証 `server` pytest 15 passed / `pnpm -C client check` 0 errors / build success / e2e 8 passed
 
 ## 次にやる候補
 
@@ -287,11 +289,12 @@ MacBookローカル実サービス確認:
 
 1. Irodori-TTS-Server側のno-ref音声カスタマイズ後、`speaker_id: "none"` のまま期待する声質で読み上がることを実機確認する
    - 声質を固定するTTSシード（`DEFAULT_TTS_SEED`）は実装・コミット済み。残りは desktop PC（WSL）へ pull → 会話サーバー再起動 → 実機試聴での確認
-2. 失敗時ログとUIメッセージの改善
-3. 音声入力（Web Speech API）の実機確認と仕上げ
+2. 音声入力（Web Speech API）の実機確認と仕上げ
    - セキュアコンテキスト（`pnpm dev` の localhost / 将来の Tauri）で、マイク録音→入力欄反映→送信を実機確認する
    - 認識精度・無音時の扱い・エラーメッセージの調整
    - 最終形は Tauri アプリ（MacBook）で音声入力を動かす
+
+（完了: 失敗時ログとUIメッセージの改善 — 会話ターン失敗を段階別の構造化エラー＋サーバーログ化し、クライアントは原因別メッセージを表示）
 
 ## 注意点
 

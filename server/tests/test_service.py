@@ -11,7 +11,7 @@ from app.adapters import IrodoriTtsClient, OllamaClient
 from app.config import AppConfig
 from app.main import create_app
 from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
-from app.service import ConversationBusyError, ConversationService
+from app.service import ConversationBusyError, ConversationService, TurnFailedError
 from app.storage import ConversationHistory, SettingsStore
 
 
@@ -239,6 +239,67 @@ async def test_text_turn_adds_history_with_mock_services(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+async def test_turn_maps_llm_timeout(tmp_path: Path) -> None:
+    class TimeoutOllama:
+        async def chat(self, settings, history, user_text):  # noqa: ANN001
+            raise httpx.ReadTimeout("llm timed out")
+
+    class UnusedTts:
+        async def synthesize(self, text, settings):  # noqa: ANN001
+            raise AssertionError("TTS should not be called after an LLM failure")
+
+    service = ConversationService(
+        SettingsStore(tmp_path),
+        ConversationHistory(),
+        TimeoutOllama(),  # type: ignore[arg-type]
+        UnusedTts(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(TurnFailedError) as exc_info:
+        await service.text_turn("こんにちは")
+    assert exc_info.value.code == "llm_timeout"
+
+
+@pytest.mark.asyncio
+async def test_turn_maps_tts_unavailable(tmp_path: Path) -> None:
+    class OkOllama:
+        async def chat(self, settings, history, user_text):  # noqa: ANN001
+            return "返答です。"
+
+    class UnreachableTts:
+        async def synthesize(self, text, settings):  # noqa: ANN001
+            raise httpx.ConnectError("connection refused")
+
+    service = ConversationService(
+        SettingsStore(tmp_path),
+        ConversationHistory(),
+        OkOllama(),  # type: ignore[arg-type]
+        UnreachableTts(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(TurnFailedError) as exc_info:
+        await service.text_turn("こんにちは")
+    assert exc_info.value.code == "tts_unavailable"
+    # 失敗したターンは履歴に残さない
+    assert service.history.all() == []
+
+
+def test_text_turn_endpoint_maps_turn_failure(tmp_path: Path) -> None:
+    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
+
+    class FailingService:
+        async def text_turn(self, text: str):
+            raise TurnFailedError("tts_timeout")
+
+    with TestClient(app) as client:
+        app.state.conversation_service = FailingService()
+        response = client.post("/api/turns/text", json={"text": "こんにちは"})
+
+    assert response.status_code == 504
+    assert response.json()["detail"] == "tts_timeout"
+
+
+@pytest.mark.asyncio
 async def test_busy_rejection(tmp_path: Path) -> None:
     class SlowOllama:
         async def chat(self, settings, history, user_text):  # noqa: ANN001
@@ -295,8 +356,10 @@ async def test_busy_lock_is_released_after_turn_failure(tmp_path: Path) -> None:
         FastTts(),  # type: ignore[arg-type]
     )
 
-    with pytest.raises(RuntimeError, match="llm failed"):
+    # ollama の Runtime(空応答相当)は TurnFailedError("llm_empty") にラップされる
+    with pytest.raises(TurnFailedError) as exc_info:
         await service.text_turn("first")
+    assert exc_info.value.code == "llm_empty"
 
     turn = await service.text_turn("second")
 

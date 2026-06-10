@@ -441,8 +441,10 @@
       if (error.status === 409) {
         return "会話中です。少し待ってから再入力してください。";
       }
-      if (error.status === 504 || /timeout|timed out|読み上げ|tts/i.test(error.message)) {
-        return `TTS生成または応答生成がタイムアウトしました。MacBookローカルの初回生成では時間がかかることがあります。詳細: ${error.message}`;
+      // 会話サーバーが返す失敗コード(detail)を原因別メッセージへ。
+      const turnMessage = turnErrorMessage(error.message);
+      if (turnMessage) {
+        return turnMessage;
       }
       return `${error.status}: ${error.message}`;
     }
@@ -453,6 +455,24 @@
       return error.message;
     }
     return "不明なエラーが発生しました";
+  }
+
+  // 会話ターン失敗コード(/api/turns/text の detail)を日本語メッセージへ。未知コードは null。
+  function turnErrorMessage(code: string): string | null {
+    switch (code) {
+      case "llm_timeout":
+        return "AI（Ollama）の応答がタイムアウトしました。初回生成や混雑時は時間がかかることがあります。少し待ってからもう一度お試しください。";
+      case "llm_unavailable":
+        return "AI（Ollama）に接続できませんでした。会話サーバーからOllamaへ到達できるか確認してください。";
+      case "llm_empty":
+        return "AIが空の返答を返しました。もう一度お試しください。";
+      case "tts_timeout":
+        return "読み上げ（irodori-TTS）の生成がタイムアウトしました。MacBookローカルの初回生成では時間がかかることがあります。少し待ってからもう一度お試しください。";
+      case "tts_unavailable":
+        return "読み上げ（irodori-TTS）に接続できませんでした。会話サーバーからTTSへ到達できるか確認してください。";
+      default:
+        return null;
+    }
   }
 
   function isAbortError(error: unknown): boolean {
