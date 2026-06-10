@@ -198,6 +198,7 @@ pnpm tauri build   # 配布ビルド（.app / .dmg）
 ## Documents
 
 - [Architecture Overview](./docs/architecture.md)
+- [Scripts & Server Startup](./docs/scripts-and-startup.md)
 - [MVP Plan](./docs/mvp-plan.md)
 - [Design Notes](./docs/design.md)
 - [Verification Guide](./docs/verification.md)
