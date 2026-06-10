@@ -94,6 +94,29 @@ class IrodoriTtsClient:
                     options.append(SpeakerOption(id=voice_id, label=str(item.get("label") or voice_id)))
         return options or [SpeakerOption(id="none", label="none")]
 
+    async def register_voice(
+        self,
+        voice_id: str,
+        filename: str,
+        content: bytes,
+        content_type: str,
+        replace: bool,
+    ) -> list[SpeakerOption]:
+        if self.config.mock_services:
+            return [SpeakerOption(id="none", label="none"), SpeakerOption(id=voice_id, label=voice_id)]
+
+        files = {"file": (filename, content, content_type)}
+        if replace:
+            response = await self.http.put(f"{self.config.tts_base_url}/v1/audio/voices/{voice_id}", files=files)
+        else:
+            response = await self.http.post(
+                f"{self.config.tts_base_url}/v1/audio/voices",
+                data={"voice_id": voice_id},
+                files=files,
+            )
+        response.raise_for_status()
+        return await self.speakers()
+
     async def synthesize(self, text: str, settings: AppSettings) -> Path:
         suffix = f".{self.config.tts_response_format}"
         output = self.config.audio_dir / f"{uuid4().hex}{suffix}"

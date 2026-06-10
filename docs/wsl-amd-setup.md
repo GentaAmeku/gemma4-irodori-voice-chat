@@ -188,6 +188,15 @@ curl http://127.0.0.1:8088/v1/audio/voices
 
 参照音声を登録する場合:
 
+MacBookなどLAN上のクライアントに音声ファイルがある場合は、会話サーバー起動後に8000番へアップロードします。
+
+```bash
+SERVER_BASE_URL=http://<desktop-pc-lan-ip>:8000 \
+  ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav
+```
+
+WSL内で直接登録する場合:
+
 ```bash
 cd ~/ghq/gemma4-irodori-voice-chat
 TTS_BASE_URL=http://127.0.0.1:8088 \

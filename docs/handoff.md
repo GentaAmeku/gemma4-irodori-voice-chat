@@ -59,6 +59,7 @@ MacBook client
   - `GET /api/settings`
   - `PUT /api/settings`
   - `GET /api/speakers`
+  - `POST /api/speakers/{speaker_id}`
   - `GET /api/history`
   - `DELETE /api/history`
   - `POST /api/turns/text`
@@ -67,6 +68,7 @@ MacBook client
 - Ollama adapter
 - irodori-TTS adapter
 - 話す速さ `speech_speed` の設定保存とIrodori speech `speed` への橋渡し
+- 会話サーバー経由の参照音声アップロードとIrodori話者登録
 - busy制御
 - 設定保存時の履歴クリア
 - キャラクター画像アップロード
@@ -104,6 +106,7 @@ WSL標準:
 - `scripts/wsl/start-conversation-server-wsl.sh`
 - `scripts/wsl/check-wsl-stack.sh`
 - `scripts/register-irodori-voice.sh`
+- `scripts/register-conversation-voice.sh`
 
 MacBookローカル:
 
@@ -202,6 +205,7 @@ MacBookローカル実サービス確認:
 - UI Implementation Plan Phase 2の実装・手順整備: done
 - Irodori-TTS-Serverの実装確認: `/v1/audio/voices` はAPI uploadと `voices/` スキャンに対応、`/v1/audio/speech` は `speed` に対応
 - `scripts/register-irodori-voice.sh` 追加
+- `scripts/register-conversation-voice.sh` 追加
 - `speech_speed` を会話サーバー設定として保存し、Irodori speech requestへ `speed` として送信
 - `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest`: 6 passed
 - `pnpm -C client format`: success
@@ -235,12 +239,15 @@ MacBookローカル実サービス確認:
 - `pnpm -C client test:e2e`: 6 passed
 - `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 7 passed
 - `bash -n scripts/register-irodori-voice.sh scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh`: success
+- 会話サーバー経由の参照音声登録APIを追加。MacBookからIrodori 8088番へ直接接続できない標準構成でも、会話サーバー8000番へアップロードしてIrodoriへ登録できる
+- `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 10 passed
+- `bash -n scripts/register-conversation-voice.sh scripts/register-irodori-voice.sh scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh`: success
 
 ## 次にやる候補
 
 推奨順:
 
-1. 参照音声ファイルを用意し、Irodori-TTS-Serverへ登録して `/api/speakers` で `none` 以外が出ることを実機確認する
+1. 参照音声ファイルを用意し、`scripts/register-conversation-voice.sh` でdesktop PCの会話サーバーへアップロードして `/api/speakers` で `none` 以外が出ることを実機確認する
 2. 将来のジョブID方式またはWebSocket方式へ移れるよう、会話進行状態の型を整理する
 3. 失敗時ログとUIメッセージの改善
 4. 音声入力フェーズ

@@ -150,6 +150,12 @@ Optionsを開きます。
 - 話す速さを変更して保存できる
 
 参照音声の登録手順は [Reference Voice Setup](./reference-voice-setup.md) を参照してください。
+MacBookからdesktop PC / WSL構成へ登録する場合は、会話サーバー経由の登録を使います。
+
+```bash
+SERVER_BASE_URL=http://<desktop-pc-lan-ip>:8000 \
+  ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav
+```
 
 ## 6. 失敗時の切り分け
 

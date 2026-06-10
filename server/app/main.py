@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+import re
 import shutil
 import tempfile
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,6 +17,11 @@ from .config import AppConfig, load_config
 from .models import AppSettings, HealthResponse, HistoryResponse, SpeakerOption, TextTurnRequest
 from .service import ConversationBusyError, ConversationService
 from .storage import ConversationHistory, SettingsStore
+
+
+VOICE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+ALLOWED_VOICE_SUFFIXES = {".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".webm"}
+MAX_REFERENCE_VOICE_BYTES = 50 * 1024 * 1024
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:
@@ -76,6 +82,38 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     @app.get("/api/speakers", response_model=list[SpeakerOption])
     async def speakers() -> list[SpeakerOption]:
         return await app.state.tts.speakers()
+
+    @app.post("/api/speakers/{speaker_id}", response_model=list[SpeakerOption])
+    async def register_speaker(
+        speaker_id: str,
+        file: UploadFile = File(...),
+        replace: bool = Query(default=False),
+    ) -> list[SpeakerOption]:
+        if not VOICE_ID_PATTERN.fullmatch(speaker_id):
+            raise HTTPException(status_code=400, detail="invalid_speaker_id")
+
+        filename = Path(file.filename or "").name
+        suffix = Path(filename).suffix.lower()
+        if suffix not in ALLOWED_VOICE_SUFFIXES:
+            raise HTTPException(status_code=400, detail="unsupported_voice_type")
+
+        content = await file.read(MAX_REFERENCE_VOICE_BYTES + 1)
+        if len(content) > MAX_REFERENCE_VOICE_BYTES:
+            raise HTTPException(status_code=413, detail="voice_file_too_large")
+        if not content:
+            raise HTTPException(status_code=400, detail="empty_voice_file")
+
+        try:
+            return await app.state.tts.register_voice(
+                speaker_id,
+                filename,
+                content,
+                file.content_type or "application/octet-stream",
+                replace,
+            )
+        except httpx.HTTPStatusError as exc:
+            status_code = 409 if exc.response.status_code == 409 else 502
+            raise HTTPException(status_code=status_code, detail="irodori_voice_registration_failed") from exc
 
     @app.get("/api/history", response_model=HistoryResponse)
     async def get_history() -> HistoryResponse:

@@ -5,9 +5,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
 from app.adapters import IrodoriTtsClient, OllamaClient
 from app.config import AppConfig
+from app.main import create_app
 from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
 from app.service import ConversationBusyError, ConversationService
 from app.storage import ConversationHistory, SettingsStore
@@ -89,6 +91,70 @@ async def test_speakers_parses_irodori_voice_list(tmp_path: Path) -> None:
         speakers = await IrodoriTtsClient(config, http_client).speakers()
 
     assert [speaker.id for speaker in speakers] == ["none", "rinon"]
+
+
+@pytest.mark.asyncio
+async def test_register_voice_posts_multipart_to_irodori(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/audio/voices" and request.method == "POST":
+            captured["content_type"] = request.headers["content-type"]
+            captured["body"] = request.content
+            return httpx.Response(200, json={"id": "rinon"})
+        if request.url.path == "/v1/audio/voices" and request.method == "GET":
+            return httpx.Response(200, json={"data": [{"id": "none"}, {"id": "rinon"}]})
+        return httpx.Response(404)
+
+    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        speakers = await IrodoriTtsClient(config, http_client).register_voice(
+            "rinon",
+            "rinon.wav",
+            b"RIFF",
+            "audio/wav",
+            replace=False,
+        )
+
+    assert [speaker.id for speaker in speakers] == ["none", "rinon"]
+    assert "multipart/form-data" in str(captured["content_type"])
+    assert b'name="voice_id"' in captured["body"]
+    assert b"rinon" in captured["body"]
+    assert b'filename="rinon.wav"' in captured["body"]
+    assert b"RIFF" in captured["body"]
+
+
+def test_register_speaker_endpoint_with_mock_services(tmp_path: Path) -> None:
+    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/speakers/rinon",
+            files={"file": ("rinon.wav", b"RIFF", "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == [{"id": "none", "label": "none"}, {"id": "rinon", "label": "rinon"}]
+
+
+def test_register_speaker_endpoint_rejects_invalid_input(tmp_path: Path) -> None:
+    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
+
+    with TestClient(app) as client:
+        invalid_id = client.post(
+            "/api/speakers/リノン",
+            files={"file": ("rinon.wav", b"RIFF", "audio/wav")},
+        )
+        invalid_type = client.post(
+            "/api/speakers/rinon",
+            files={"file": ("rinon.txt", b"RIFF", "text/plain")},
+        )
+
+    assert invalid_id.status_code == 400
+    assert invalid_id.json()["detail"] == "invalid_speaker_id"
+    assert invalid_type.status_code == 400
+    assert invalid_type.json()["detail"] == "unsupported_voice_type"
 
 
 @pytest.mark.asyncio

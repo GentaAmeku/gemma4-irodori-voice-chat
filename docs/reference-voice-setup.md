@@ -28,9 +28,27 @@ rinon-soft
 sample_01
 ```
 
-## 登録方法A: APIでアップロードする
+## 登録方法A: 会話サーバー経由でアップロードする
+
+MacBookからdesktop PC / WSL構成へ登録する場合の推奨手順です。
+MacBookはIrodori-TTS-Serverの8088番へ直接接続せず、会話サーバーの8000番へ音声ファイルをアップロードします。
+
+```bash
+SERVER_BASE_URL=http://192.168.3.2:8000 \
+  ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav
+```
+
+同じ話者IDを置き換える場合:
+
+```bash
+SERVER_BASE_URL=http://192.168.3.2:8000 \
+  ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav --replace
+```
+
+## 登録方法B: Irodori APIへ直接アップロードする
 
 Irodori-TTS-Serverが起動している状態で実行します。
+Irodori-TTS-Serverの8088番へ接続できる環境、またはdesktop PC / WSL内で実行する場合の手順です。
 
 ```bash
 TTS_BASE_URL=http://127.0.0.1:8088 \
@@ -51,7 +69,7 @@ IRODORI_API_KEY=<key> TTS_BASE_URL=http://127.0.0.1:8088 \
   ./scripts/register-irodori-voice.sh rinon /path/to/rinon.wav
 ```
 
-## 登録方法B: voices/へ直接置く
+## 登録方法C: voices/へ直接置く
 
 Irodori-TTS-Serverは `voices/` に置かれた音声ファイルを話者としてスキャンします。
 
@@ -102,8 +120,9 @@ curl http://127.0.0.1:8000/api/speakers
 
 `/api/speakers` に `none` しか出ない場合:
 
+- MacBookからdesktop PC / WSL構成を使う場合は、まず会話サーバー経由の登録方法Aを使う。
 - Irodori-TTS-Serverの `/v1/audio/voices` に話者IDが出ているか確認する。
 - API登録で409が出る場合は `--replace` を使う。
 - 話者IDに日本語や空白を使っていないか確認する。
-- MacBookからdesktop PC / WSL構成を使う場合、音声をMacBook側ではなくdesktop PC / WSL側の `../Irodori-TTS-Server/voices/` またはIrodori APIへ登録しているか確認する。
+- 直置きする場合、音声をMacBook側ではなくdesktop PC / WSL側の `../Irodori-TTS-Server/voices/` へ置いているか確認する。
 - Irodori-TTS-Serverを再起動してから再確認する。
