@@ -179,18 +179,18 @@ MacBookローカル実サービス確認:
 - MacBookローカル Web UI状態表示: 会話サーバー / Ollama / irodori-TTS が接続済み
 - MacBookローカル初回Irodori音声生成: モデルロード込みで約127秒。以後の実測は約46秒。
 - MacBookローカル自動チェック: `uv run pytest` 4 passed / `pnpm check` 0 errors / `pnpm build` success / `pnpm test:e2e` 3 passed / `bash -n scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh` success
+- desktop PC側WSLリポジトリへの最新修正反映と会話サーバー再起動: done
+- desktop PC / WSL実機UIで返答中表示と新しい人格プロンプトを再確認: done
 
 ## 次にやる候補
 
 推奨順:
 
-1. desktop PC側WSLリポジトリへ最新修正を反映し、会話サーバーを再起動する
-2. 返答中表示と新しい人格プロンプトを実機UIで再確認する
-3. [UI Implementation Plan](./ui-implementation-plan.md) のPhase 1に沿って、デザイン実装の仕上げを行う
-4. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
-5. MacBookローカルIrodoriの生成待ちUI/timeout表示を改善する
-6. 失敗時ログとUIメッセージの改善
-7. 音声入力フェーズ
+1. [UI Implementation Plan](./ui-implementation-plan.md) のPhase 1に沿って、デザイン実装の仕上げを行う
+2. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
+3. MacBookローカルIrodoriの生成待ちUI/timeout表示を改善する
+4. 失敗時ログとUIメッセージの改善
+5. 音声入力フェーズ
    - WebSocket設計
    - ブラウザマイク入力
    - PCM変換
