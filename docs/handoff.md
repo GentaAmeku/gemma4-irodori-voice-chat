@@ -265,6 +265,11 @@ MacBookローカル実サービス確認:
 - `pnpm -C client build`: success
 - `pnpm -C client test:e2e`: 6 passed
 - Browser DOM確認: 設定パネルから話者テキスト / 話者selectが消え、口調プリセット / 距離感 / 話す速さが表示されることを確認
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `curl http://192.168.3.2:8000/api/health` は `ready: true` / `gemma4:12b` / `mock_services: false`
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/settings` は `speech_speed: 1.0` / `tone_preset: calm` / `distance: 40` / `speaker_id: none`
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/speakers` は `none` のみ。MVP方針では正常
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `POST /api/turns/text` は成功し、返答 `はい、しっかり受け取ったよ。これからよろしくね。` とWAV URL `/media/audio/853491d11431432aab019ba03a0bcfd1.wav` が返った
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 399404` でMacBookから取得可能
 
 ## 次にやる候補
 
