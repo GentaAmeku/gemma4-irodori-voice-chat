@@ -16,3 +16,7 @@ playwright-report/
 # Logs
 *.log
 .logs/
+
+# Claude Code hook markers (Stop フックの内部状態)
+.claude/.needs-check
+.claude/.check-attempts

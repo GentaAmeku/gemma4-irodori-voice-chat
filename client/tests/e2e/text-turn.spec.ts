@@ -18,17 +18,21 @@ test("connects to the mock conversation server and completes a text turn", async
   await expect(page.locator("#character-title")).toHaveText("リノン");
   await expect(page.getByText("gemma4:12b / mock")).toBeVisible();
   await expect(page.getByText("接続しました")).toBeVisible();
-  await expect(page.locator(".status-tile").filter({ hasText: "会話サーバー" }).getByText("接続済み")).toBeVisible();
-  await expect(page.locator(".status-tile").filter({ hasText: "Ollama" }).getByText("接続済み")).toBeVisible();
-  await expect(page.locator(".status-tile").filter({ hasText: "irodori-TTS" }).getByText("接続済み")).toBeVisible();
+  await expect(page.getByText("すべて接続済み")).toBeVisible();
+
+  await page.getByRole("button", { name: "設定" }).click();
+  await expect(page.locator(".status-item").filter({ hasText: "会話サーバー" }).getByText("接続済み")).toBeVisible();
+  await expect(page.locator(".status-item").filter({ hasText: "Ollama" }).getByText("接続済み")).toBeVisible();
+  await expect(page.locator(".status-item").filter({ hasText: "irodori-TTS" }).getByText("接続済み")).toBeVisible();
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
 
   await page.getByLabel("テキスト入力").fill("クライアントE2Eの確認です");
   await page.getByRole("button", { name: "送信" }).click();
 
   await expect(page.getByText("クライアントE2Eの確認です", { exact: true })).toBeVisible();
   await expect(page.getByText("リノンです。『クライアントE2Eの確認です』について、まずは短く返すね。")).toBeVisible();
-  await expect(page.getByLabel("最後の読み上げ").locator("audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
-  await expect(page.locator(".assistant-bubble audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
+  await expect(page.locator(".msg.assistant audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
+  await expect(page.locator(".msg.assistant .audiochip")).toBeVisible();
 });
 
 test("shows the user message while waiting for the assistant response", async ({ page }) => {
@@ -55,7 +59,7 @@ test("shows the user message while waiting for the assistant response", async ({
   await page.getByRole("button", { name: "送信" }).click();
 
   await expect(page.getByText("今日も疲れたね", { exact: true })).toBeVisible();
-  await expect(page.getByText("リノンが返答中...")).toBeVisible();
+  await expect(page.getByText("リノンが返答中…")).toBeVisible();
 
   releaseResponse();
   await expect(page.getByText("今日もおつかれさま。少しだけ休もうね。")).toBeVisible();
@@ -68,18 +72,22 @@ test("saves settings and clears conversation history", async ({ page }) => {
   await page.getByRole("button", { name: "送信" }).click();
   await expect(page.getByText("履歴クリア前の発話です", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Options" }).click();
+  await page.getByRole("button", { name: "設定", exact: true }).click();
   await page.getByLabel("キャラクター名").fill("リノン");
-  await page.getByRole("button", { name: "保存" }).click();
+  await page.getByRole("button", { name: "保存する" }).click();
 
   await expect(page.getByText("設定を保存しました")).toBeVisible();
   await expect(page.getByText("まだ会話はありません。")).toBeVisible();
 
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
   await page.getByLabel("テキスト入力").fill("もう一度話します");
   await page.getByRole("button", { name: "送信" }).click();
   await expect(page.getByText("もう一度話します", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "履歴クリア" }).click();
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByRole("button", { name: "会話履歴をクリア" }).click();
   await expect(page.getByText("履歴をクリアしました")).toBeVisible();
+
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
   await expect(page.getByText("まだ会話はありません。")).toBeVisible();
 });

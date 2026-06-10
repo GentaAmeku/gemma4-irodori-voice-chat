@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "client",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd client && VITE_GIC_DEFAULT_BASE_URL=http://127.0.0.1:8000 pnpm dev"],
+      "port": 5173
+    }
+  ]
+}

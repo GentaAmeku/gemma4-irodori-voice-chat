@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ツール非依存の pre-commit フック。
+# ステージされた client 配下のファイルを prettier 整形して再ステージし、svelte-check を実行する。
+# Claude Code / Codex / 人間など、どのツールのコミットでも同じ format/lint を強制する。
+# 有効化: git config core.hooksPath .githooks
+set -euo pipefail
+
+repo=$(git rev-parse --show-toplevel)
+
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^client/' || true)
+[ -n "$staged" ] || exit 0
+
+prettier="$repo/client/node_modules/.bin/prettier"
+
+# 1) prettier 対象を整形して再ステージ
+fmt=$(printf '%s\n' "$staged" | grep -E '\.(svelte|ts|js|css|json|html|md)$' || true)
+if [ -n "$fmt" ] && [ -x "$prettier" ]; then
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    (cd "$repo/client" && "$prettier" --write --ignore-unknown "${path#client/}")
+    git add -- "$path"
+  done <<<"$fmt"
+fi
+
+# 2) svelte-check(.svelte/.ts/.js がステージされたときのみ)
+if printf '%s\n' "$staged" | grep -qE '\.(svelte|ts|js)$'; then
+  (cd "$repo/client" && pnpm -s check)
+fi

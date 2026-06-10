@@ -1,13 +1,22 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, ApiError, type AppSettings, type ConversationTurn, type HealthResponse, type SpeakerOption } from "./api";
+  import {
+    api,
+    ApiError,
+    type AppSettings,
+    type ConversationTurn,
+    type HealthResponse,
+    type SpeakerOption,
+  } from "./api";
+  import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
+  import { loadPrefs, savePrefs } from "./lib/prefs";
+  import AudioChip from "./lib/AudioChip.svelte";
+  import CharacterRail from "./lib/CharacterRail.svelte";
+  import Icon from "./lib/Icon.svelte";
+  import SettingsPanel from "./lib/SettingsPanel.svelte";
+  import StatusDot from "./lib/StatusDot.svelte";
+  import TypingIndicator from "./lib/TypingIndicator.svelte";
 
-  type DisplayState = "disconnected" | "connecting" | "ready" | "conversing" | "error";
-  type StatusItem = {
-    label: string;
-    state: "ok" | "error" | "unknown";
-    detail: string;
-  };
   type DisplayTurn = ConversationTurn & {
     id: string;
     state: "complete" | "pending" | "error";
@@ -18,41 +27,63 @@
   const legacyDefaultBaseUrl = "http://127.0.0.1:8000";
   const defaultBaseUrl = import.meta.env.VITE_GIC_DEFAULT_BASE_URL ?? "http://192.168.3.2:8000";
   const storedBaseUrl = localStorage.getItem(savedBaseUrl);
+  const initialBaseUrl = storedBaseUrl && storedBaseUrl !== legacyDefaultBaseUrl ? storedBaseUrl : defaultBaseUrl;
 
-  let baseUrl = storedBaseUrl && storedBaseUrl !== legacyDefaultBaseUrl ? storedBaseUrl : defaultBaseUrl;
-  let draftBaseUrl = baseUrl;
-  let displayState: DisplayState = "disconnected";
-  let health: HealthResponse | null = null;
-  let settings: AppSettings | null = null;
-  let settingsDraft: AppSettings | null = null;
-  let speakers: SpeakerOption[] = [];
-  let turns: DisplayTurn[] = [];
-  let textInput = "";
-  let errorMessage = "";
-  let statusMessage = "";
-  let showSettings = false;
-  let imageVersion = Date.now();
-  let imageMissing = false;
-  let audioElement: HTMLAudioElement | null = null;
-  let latestAudioUrl = "";
+  let baseUrl = $state(initialBaseUrl);
+  let draftBaseUrl = $state(initialBaseUrl);
+  let displayState = $state<DisplayState>("disconnected");
+  let health = $state<HealthResponse | null>(null);
+  let settings = $state<AppSettings | null>(null);
+  let settingsDraft = $state<AppSettings | null>(null);
+  let speakers = $state<SpeakerOption[]>([]);
+  let turns = $state<DisplayTurn[]>([]);
+  let textInput = $state("");
+  let errorMessage = $state("");
+  let statusMessage = $state("");
+  let settingsOpen = $state(false);
+  let imageVersion = $state(Date.now());
+  let imageMissing = $state(false);
+  let freshId = $state<string | null>(null);
+  let autoplayId = $state<string | null>(null);
+  let prefs = $state(loadPrefs());
 
-  const displayLabels: Record<DisplayState, string> = {
-    disconnected: "未接続",
-    connecting: "接続中",
-    ready: "利用可能",
-    conversing: "会話中",
-    error: "エラー",
-  };
+  let threadEl = $state<HTMLDivElement>();
+  let textareaEl = $state<HTMLTextAreaElement>();
 
-  $: canConverse = displayState === "ready" && textInput.trim().length > 0;
-  $: characterImageUrl = `${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`;
-  $: statusItems = buildStatusItems(health, displayState, baseUrl);
-  $: connectionHelp = isLocalConnection(draftBaseUrl)
-    ? "MacBookローカル構成では、このMac上の会話サーバーに接続します。"
-    : "MacBookからはdesktop PC上の会話サーバーを指定します。例: http://<desktop-pc-lan-ip>:8000";
+  const characterName = $derived(settings?.character_name ?? "リノン");
+  const canConverse = $derived(displayState === "ready" && textInput.trim().length > 0);
+  const characterImageUrl = $derived(`${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`);
+  const statusItems = $derived(buildStatusItems(health, displayState, baseUrl));
+  const allOk = $derived(health !== null && health.server_ok && health.ollama.ok && health.tts.ok);
+  const dotState = $derived.by(() => {
+    if (displayState === "ready" || displayState === "conversing") return "ok" as const;
+    if (displayState === "connecting") return "warn" as const;
+    if (displayState === "error") return "err" as const;
+    return "unknown" as const;
+  });
+  const dotLive = $derived(displayState === "ready" || displayState === "conversing");
+  const connectionHelp = $derived(
+    isLocalConnection(draftBaseUrl)
+      ? "MacBookローカル構成では、このMac上の会話サーバーに接続します。"
+      : "MacBookからはdesktop PC上の会話サーバーを指定します。例: http://<desktop-pc-lan-ip>:8000",
+  );
 
   onMount(() => {
     void connect();
+  });
+
+  // ローカルプリファレンスは変更のたびに保存する
+  $effect(() => {
+    savePrefs({ ...prefs });
+  });
+
+  // 会話ターンの追加・更新でスレッドを最下部へ
+  $effect(() => {
+    void turns.length;
+    void turns.at(-1)?.state;
+    if (threadEl) {
+      threadEl.scrollTop = threadEl.scrollHeight;
+    }
   });
 
   async function connect() {
@@ -72,6 +103,8 @@
       settingsDraft = { ...nextSettings };
       speakers = nextSpeakers;
       turns = history.turns.map((turn, index) => toDisplayTurn(turn, `history-${index}`));
+      imageMissing = false;
+      imageVersion = Date.now();
       displayState = nextHealth.ready ? "ready" : "error";
       if (!nextHealth.ready) {
         errorMessage = dependencyMessage(nextHealth);
@@ -93,8 +126,9 @@
     }
     displayState = "conversing";
     errorMessage = "";
-    statusMessage = `${settings?.character_name ?? "リノン"}が返答中`;
+    statusMessage = `${characterName}が返答中`;
     textInput = "";
+    resetComposerHeight();
     const pendingId = createTurnId();
     const pendingTurn: DisplayTurn = {
       id: pendingId,
@@ -104,14 +138,13 @@
       audio_url: "",
     };
     turns = [...turns, pendingTurn];
+    freshId = pendingId;
     try {
       const turn = await api.textTurn(baseUrl, text);
       turns = turns.map((existing) => (existing.id === pendingId ? toDisplayTurn(turn, pendingId) : existing));
-      latestAudioUrl = turn.audio_url;
-      statusMessage = "読み上げ中";
-      const didPlay = await tryPlayAudio(turn.audio_url);
+      autoplayId = prefs.autoplay ? pendingId : null;
       displayState = "ready";
-      statusMessage = didPlay ? "利用可能です" : "自動再生できませんでした。音声プレイヤーから再生してください。";
+      statusMessage = "";
     } catch (error) {
       const nextErrorMessage = formatError(error);
       turns = turns.map((existing) =>
@@ -132,6 +165,7 @@
       settings = saved;
       settingsDraft = { ...saved };
       turns = [];
+      errorMessage = "";
       statusMessage = "設定を保存しました";
     } catch (error) {
       errorMessage = formatError(error);
@@ -142,18 +176,14 @@
     try {
       await api.clearHistory(baseUrl);
       turns = [];
+      errorMessage = "";
       statusMessage = "履歴をクリアしました";
     } catch (error) {
       errorMessage = formatError(error);
     }
   }
 
-  async function uploadImage(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) {
-      return;
-    }
+  async function uploadImage(file: File) {
     try {
       await api.uploadCharacterImage(baseUrl, file);
       imageMissing = false;
@@ -161,23 +191,34 @@
       statusMessage = "キャラクター画像を更新しました";
     } catch (error) {
       errorMessage = formatError(error);
-    } finally {
-      input.value = "";
     }
   }
 
-  async function tryPlayAudio(audioUrl: string): Promise<boolean> {
-    const source = api.absoluteUrl(baseUrl, audioUrl);
-    if (!audioElement) {
-      audioElement = new Audio();
+  function onComposerKeydown(event: KeyboardEvent) {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      void sendTextTurn();
     }
-    audioElement.src = source;
-    try {
-      await audioElement.play();
-      return true;
-    } catch {
-      return false;
+  }
+
+  // field-sizing 非対応ブラウザ (Firefox) 向けの自動伸長フォールバック
+  function autoGrow(event: Event) {
+    if (CSS.supports("field-sizing", "content")) {
+      return;
     }
+    const el = event.currentTarget as HTMLTextAreaElement;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }
+
+  function resetComposerHeight() {
+    if (textareaEl && !CSS.supports("field-sizing", "content")) {
+      textareaEl.style.height = "auto";
+    }
+  }
+
+  function onAutoplayFail() {
+    statusMessage = "自動再生できませんでした。メッセージの再生ボタンから再生してください。";
   }
 
   function formatError(error: unknown): string {
@@ -207,35 +248,6 @@
     return errors.join(" / ") || "会話サーバーは応答しましたが、利用可能状態ではありません";
   }
 
-  function buildStatusItems(
-    currentHealth: HealthResponse | null,
-    currentDisplayState: DisplayState,
-    currentBaseUrl: string,
-  ): StatusItem[] {
-    if (!currentHealth) {
-      return [
-        { label: "会話サーバー", state: currentDisplayState === "connecting" ? "unknown" : "error", detail: currentBaseUrl },
-        { label: "Ollama", state: "unknown", detail: "未確認" },
-        { label: "irodori-TTS", state: "unknown", detail: "未確認" },
-      ];
-    }
-    return [
-      { label: "会話サーバー", state: currentHealth.server_ok ? "ok" : "error", detail: currentBaseUrl },
-      {
-        label: "Ollama",
-        state: currentHealth.ollama.ok ? "ok" : "error",
-        detail: currentHealth.ollama.ok
-          ? `${currentHealth.model} / ${currentHealth.ollama_base_url ?? "接続済み"}`
-          : (currentHealth.ollama.detail ?? "利用できません"),
-      },
-      {
-        label: "irodori-TTS",
-        state: currentHealth.tts.ok ? "ok" : "error",
-        detail: currentHealth.tts.ok ? (currentHealth.tts_base_url ?? "接続済み") : (currentHealth.tts.detail ?? "利用できません"),
-      },
-    ];
-  }
-
   function toDisplayTurn(turn: ConversationTurn, id = createTurnId()): DisplayTurn {
     return {
       ...turn,
@@ -262,152 +274,123 @@
   <title>Gemma4 Irodori Chat</title>
 </svelte:head>
 
-<main class="app-shell">
-  <section class="portrait-pane" aria-labelledby="character-title">
-    <header class="topbar">
+<main class="app">
+  <CharacterRail
+    name={characterName}
+    model={health?.model ?? null}
+    mock={health?.mock_services ?? false}
+    prompt={settings?.character_prompt ?? ""}
+    imageUrl={characterImageUrl}
+    {imageMissing}
+    stateLabel={DISPLAY_LABELS[displayState]}
+    {dotState}
+    live={dotLive}
+    {allOk}
+    onOpenSettings={() => (settingsOpen = true)}
+    onImageError={() => (imageMissing = true)}
+  />
+
+  <section class="convo" aria-label="会話">
+    <header class="convo-head">
+      {#if imageMissing}
+        <span class="mini-avatar" aria-hidden="true"></span>
+      {:else}
+        <img class="mini-avatar" src={characterImageUrl} alt="" onerror={() => (imageMissing = true)} />
+      {/if}
       <div>
-        <h1 id="character-title">{settings?.character_name ?? "Gemma4 Irodori Chat"}</h1>
-        <p class="model-line">{health?.model ?? "model unknown"}{health?.mock_services ? " / mock" : ""}</p>
+        <div class="title">{characterName}</div>
+        <div class="sub" aria-live="polite">
+          <StatusDot state={dotState} live={dotLive} />
+          {statusMessage || DISPLAY_LABELS[displayState]}
+        </div>
       </div>
-      <button type="button" class="ghost-button" on:click={() => (showSettings = !showSettings)} aria-expanded={showSettings}>
-        Options
+      <span class="spacer"></span>
+      <button type="button" class="icon-btn head-gear" aria-label="設定" onclick={() => (settingsOpen = true)}>
+        <Icon name="gear" />
       </button>
     </header>
 
-    <figure class="character-frame">
-      {#if imageMissing}
-        <div class="image-placeholder" aria-label="キャラクター画像未設定">No Image</div>
-      {:else}
-        <img
-          src={characterImageUrl}
-          alt={`${settings?.character_name ?? "キャラクター"}の画像`}
-          width="720"
-          height="900"
-          fetchpriority="high"
-          on:error={() => (imageMissing = true)}
-        />
-      {/if}
-      <figcaption>{displayLabels[displayState]}</figcaption>
-    </figure>
-
-    <form class="connection-form" on:submit|preventDefault={connect}>
-      <label for="server-url">接続先</label>
-      <div class="inline-row">
-        <input id="server-url" type="url" bind:value={draftBaseUrl} aria-describedby="server-url-help" required />
-        <button type="submit">接続</button>
-      </div>
-      <p id="server-url-help" class="form-help">{connectionHelp}</p>
-    </form>
-
-    <div class="status-grid" aria-label="接続状態">
-      {#each statusItems as item}
-        <section class:status-ok={item.state === "ok"} class:status-error={item.state === "error"} class="status-tile">
-          <h2>{item.label}</h2>
-          <p>{item.state === "ok" ? "接続済み" : item.state === "error" ? "要確認" : "未確認"}</p>
-          <small>{item.detail}</small>
-        </section>
-      {/each}
-    </div>
-
-    {#if showSettings && settingsDraft}
-      <aside class="settings-panel" aria-labelledby="settings-title">
-        <div class="panel-heading">
-          <h2 id="settings-title">設定</h2>
-          <button type="button" class="ghost-button" on:click={() => (showSettings = false)}>閉じる</button>
-        </div>
-
-        <form class="settings-form" on:submit|preventDefault={saveSettings}>
-          <label for="character-name">キャラクター名</label>
-          <input id="character-name" bind:value={settingsDraft.character_name} required />
-
-          <label for="speaker">話者</label>
-          <select id="speaker" bind:value={settingsDraft.speaker_id}>
-            {#each speakers as speaker}
-              <option value={speaker.id}>{speaker.label}</option>
-            {/each}
-          </select>
-
-          <label for="character-prompt">キャラクター設定</label>
-          <textarea id="character-prompt" bind:value={settingsDraft.character_prompt} rows="7" required></textarea>
-
-          <label for="voice-prompt">読み上げ設定</label>
-          <textarea id="voice-prompt" bind:value={settingsDraft.read_aloud_prompt} rows="5" required></textarea>
-
-          <div class="button-row">
-            <button type="submit">保存</button>
-            <button type="button" class="danger-button" on:click={clearHistory}>履歴クリア</button>
-          </div>
-        </form>
-
-        <label class="upload-control" for="character-image">キャラクター画像</label>
-        <input id="character-image" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" on:change={uploadImage} />
-      </aside>
+    {#if errorMessage}
+      <p class="alertline" role="alert">{errorMessage}</p>
     {/if}
-  </section>
 
-  <section class="conversation-pane" aria-labelledby="conversation-title">
-    <header class="conversation-header">
-      <div>
-        <h2 id="conversation-title">会話</h2>
-        <p aria-live="polite">{statusMessage || displayLabels[displayState]}</p>
-      </div>
-      {#if errorMessage}
-        <p class="error-message" role="alert">{errorMessage}</p>
-      {/if}
-    </header>
-
-    <ol class="history-list" aria-label="会話履歴">
+    <div class="thread" bind:this={threadEl} aria-label="会話履歴">
       {#if turns.length === 0}
-        <li class="empty-history">まだ会話はありません。</li>
+        <p class="empty-history">まだ会話はありません。</p>
       {:else}
         {#each turns as turn (turn.id)}
-          <li class="turn">
-            <article class="bubble user-bubble">
-              <h3>あなた</h3>
-              <p>{turn.user_text}</p>
-            </article>
-            <article
-              class:assistant-pending={turn.state === "pending"}
-              class:assistant-error={turn.state === "error"}
-              class="bubble assistant-bubble"
-              aria-busy={turn.state === "pending"}
-            >
-              <h3>{settings?.character_name ?? "AI"}</h3>
-              {#if turn.state === "pending"}
-                <p class="pending-message" aria-live="polite">{settings?.character_name ?? "リノン"}が返答中<span aria-hidden="true">...</span></p>
-              {:else if turn.state === "error"}
-                <p>{turn.errorMessage ?? "返答に失敗しました"}</p>
-              {:else}
-                <p>{turn.assistant_text}</p>
-                <audio controls src={api.absoluteUrl(baseUrl, turn.audio_url)}></audio>
-              {/if}
-            </article>
-          </li>
+          <div class="msg user">
+            <div class="who">あなた</div>
+            <div class="bubble" class:fresh={turn.id === freshId}>{turn.user_text}</div>
+          </div>
+          <div class="msg assistant" class:pending={turn.state === "pending"} aria-busy={turn.state === "pending"}>
+            <div class="who">{characterName}</div>
+            {#if turn.state === "pending"}
+              <TypingIndicator charName={characterName} />
+            {:else}
+              <div class="group">
+                <div class="bubble" class:fresh={turn.id === freshId} class:error={turn.state === "error"}>
+                  {turn.state === "error" ? (turn.errorMessage ?? "返答に失敗しました") : turn.assistant_text}
+                </div>
+                {#if turn.state === "complete" && turn.audio_url}
+                  <AudioChip
+                    src={api.absoluteUrl(baseUrl, turn.audio_url)}
+                    autoplay={turn.id === autoplayId}
+                    onautoplayfail={onAutoplayFail}
+                  />
+                {/if}
+              </div>
+            {/if}
+          </div>
         {/each}
       {/if}
-    </ol>
+    </div>
 
-    <form class="input-form" on:submit|preventDefault={sendTextTurn}>
-      {#if latestAudioUrl}
-        <div class="latest-audio" aria-label="最後の読み上げ">
-          <div>
-            <h3>最後の読み上げ</h3>
-            <p>自動再生されない場合はここから再生できます。</p>
-          </div>
-          <audio controls src={api.absoluteUrl(baseUrl, latestAudioUrl)}></audio>
-        </div>
-      {/if}
-      <label for="text-input">テキスト入力</label>
-      <div class="input-row">
+    <div class="composer">
+      <form
+        class="field"
+        onsubmit={(event) => {
+          event.preventDefault();
+          void sendTextTurn();
+        }}
+      >
+        <button type="button" class="icon-btn" disabled title="音声入力（将来対応）" aria-label="音声入力（将来対応）">
+          <Icon name="mic" />
+        </button>
         <textarea
-          id="text-input"
+          bind:this={textareaEl}
           bind:value={textInput}
-          rows="3"
-          placeholder="話しかけてください"
+          rows="1"
+          placeholder="話しかけてください…"
+          aria-label="テキスト入力"
           disabled={displayState === "conversing"}
+          onkeydown={onComposerKeydown}
+          oninput={autoGrow}
         ></textarea>
-        <button type="submit" disabled={!canConverse}>送信</button>
+        <button type="submit" class="send" disabled={!canConverse} aria-label="送信">
+          <Icon name="send" />
+        </button>
+      </form>
+      <div class="hint">
+        <kbd>Enter</kbd> で送信 · <kbd>Shift</kbd>+<kbd>Enter</kbd> で改行
+        {#if prefs.autoplay}
+          <span class="right">自動読み上げ ON</span>
+        {/if}
       </div>
-    </form>
+    </div>
   </section>
 </main>
+
+<SettingsPanel
+  bind:open={settingsOpen}
+  bind:draft={settingsDraft}
+  bind:draftBaseUrl
+  bind:prefs
+  {speakers}
+  {statusItems}
+  {connectionHelp}
+  onSave={saveSettings}
+  onConnect={connect}
+  onClearHistory={clearHistory}
+  onUploadImage={uploadImage}
+/>
