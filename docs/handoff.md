@@ -13,6 +13,7 @@ MacBook client
   -> desktop PC WSL conversation server
   -> Windows Ollama gemma4:12b
   -> WSL irodori-TTS-Server
+  -> WSL STT server (faster-whisper, 音声入力用・任意)
 ```
 
 重要:
@@ -33,6 +34,7 @@ MacBook client
   -> MacBook conversation server
   -> MacBook Ollama gemma4:e4b-mlx
   -> MacBook Irodori-TTS-Server
+  -> MacBook STT server (faster-whisper, 音声入力用・任意)
 ```
 
 重要:
@@ -68,6 +70,9 @@ MacBook client
 - Ollama adapter
 - irodori-TTS adapter
 - 話す速さ `speech_speed` の設定保存とIrodori speech `speed` への橋渡し
+- no_ref読み上げの声質を固定するTTSシード（`DEFAULT_TTS_SEED`）。チャンク／ターンを跨いで同じ声質に保つ。`GIC_TTS_SEED` で変更、`none`/`random` でランダムに戻す
+- 音声入力STTのプロキシ。`POST /api/stt`（音声→テキスト）で別STTサービス（faster-whisper）へ中継。`GIC_STT_BASE_URL`/`GIC_STT_MODEL`/`GIC_STT_LANGUAGE` で設定。health にSTT状態を含む（ready判定には含めない）
+- 独立STTサービス（`stt-server/`、faster-whisper、OpenAI互換 `/v1/audio/transcriptions`、mockモード）
 - 口調プリセット `tone_preset` と距離感 `distance` の設定保存、Ollama system promptへの合成
 - 会話サーバー経由の参照音声アップロードとIrodori話者登録（MVP UIでは未使用）
 - busy制御
@@ -91,9 +96,13 @@ MacBook client
 - 自動再生失敗時の手動再生導線
 - 設定パネル
 - 口調プリセット、距離感、話す速さの保存
+- 設定パネルの自動保存（変更があればパネルを閉じた時に保存。保存ボタンは廃止。保存は会話履歴クリアを伴う）
+- 音声入力（マイク録音 → 会話サーバーの `POST /api/stt` → サーバー側 faster-whisper で文字起こし → 入力欄へ反映 → 既存のテキストターンで送信）。音声はLAN内で処理する。録音は MediaRecorder、未対応／非セキュアコンテキスト（素のLAN http）ではマイクを無効化。状態パネルに「音声入力STT」を表示
+- 読み上げ音量のローカル保存（この端末のみ。会話サーバーへは送らない）
+- 返答生成中の中立スピナー表示（録音中の赤い塗りと区別）
 - 話者選択はMVP UIから削除。読み上げは `speaker_id: "none"` とIrodori-TTS-Server側no-refカスタマイズを使う
 - 設定パネルのフォーム説明 `aria-describedby` 紐付け
-- 設定保存 / 接続確認 / 画像アップロード / 履歴クリア中の二重送信防止
+- 設定の自動保存 / 接続確認 / 画像アップロード / 履歴クリア中の二重送信防止
 - 会話サーバー未接続 / Ollama不可 / irodori-TTS不可 / TTS timeout / 自動再生失敗の原因別エラー表示
 - 長時間生成向けの待機表示（返答生成中 -> 読み上げ準備中）
 - 履歴クリア
@@ -106,6 +115,7 @@ WSL標準:
 - `scripts/wsl/setup-irodori-wsl-amd.sh`
 - `scripts/wsl/start-irodori-wsl-amd.sh`
 - `scripts/wsl/start-conversation-server-wsl.sh`
+- `scripts/wsl/start-stt-wsl.sh`
 - `scripts/wsl/check-wsl-stack.sh`
 - `scripts/register-irodori-voice.sh`
 - `scripts/register-conversation-voice.sh`
@@ -116,6 +126,7 @@ MacBookローカル:
 - `scripts/mac/start-inference-stack-mac.sh`
 - `scripts/mac/start-irodori-mac.sh`
 - `scripts/mac/start-conversation-server-mac.sh`
+- `scripts/mac/start-stt-mac.sh`
 - `scripts/mac/start-client-mac.sh`
 - `scripts/mac/check-mac-stack.sh`
 
@@ -140,6 +151,8 @@ Linux AMD:
 - [WSL AMD Setup](./wsl-amd-setup.md)
 - [MVP Plan](./mvp-plan.md)
 - [Design Notes](./design.md)
+- [ADR 0004: Server-side STT](./adr/0004-server-side-stt.md)
+- [STT Server README](../stt-server/README.md)
 - [Context Glossary](../CONTEXT.md)
 - [Gemma4 Irodori Setup Skill](../.agents/skills/gemma4-irodori-setup/SKILL.md)
 - [Gemma4 MacBook Local Setup Skill](../.agents/skills/gemma4-macbook-local-setup/SKILL.md)
@@ -271,20 +284,22 @@ MacBookローカル実サービス確認:
 - desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `POST /api/turns/text` は成功し、返答 `はい、しっかり受け取ったよ。これからよろしくね。` とWAV URL `/media/audio/853491d11431432aab019ba03a0bcfd1.wav` が返った
 - desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 399404` でMacBookから取得可能
 - `client/.env.example` を追加し、`client/.env.local` で `VITE_GIC_DEFAULT_BASE_URL` を指定できる手順に整理。`client/.env.local` はgit管理外
+- 音声入力（Web Speech API）・読み上げ音量・設定の自動保存・TTSシード固定・UIレイアウト調整（レール幅424px・キャラ画像拡大）をコミット `cdffa80` としてmainへ反映
+- コミット `cdffa80` 後のローカル検証: `pnpm -C client check` 0 errors / `pnpm -C client build` success / `pnpm -C client test:e2e` 7 passed / `server` で `uv run pytest` 12 passed
+- 音声入力をサーバー側STT（faster-whisper、独立サービス `stt-server/`、バッチREST `POST /api/stt`）へ移行（Phase A）。クライアントは MediaRecorder で録音し `/api/stt` へ送る方式に差し替え。Web Speech API は廃止（外部送信を避けるため、[ADR 0004](./adr/0004-server-side-stt.md)）
+- Phase A のローカル検証: `server` で `uv run pytest` 16 passed（STT adapter/endpoint/health のテスト追加）、`stt-server` で `uv run pytest` 3 passed（mockモード、faster-whisper 未導入で実行）、`pnpm -C client check` 0 errors
+- 実モデル（faster-whisper）での起動・文字起こし精度・レイテンシは未検証（重いモデルのため本セッションでは未導入）。実機確認が残り
 
 ## 次にやる候補
 
 推奨順:
 
 1. Irodori-TTS-Server側のno-ref音声カスタマイズ後、`speaker_id: "none"` のまま期待する声質で読み上がることを実機確認する
+   - 声質を固定するTTSシード（`DEFAULT_TTS_SEED`）は実装・コミット済み。残りは desktop PC（WSL）へ pull → 会話サーバー再起動 → 実機試聴での確認
 2. 失敗時ログとUIメッセージの改善
-3. 音声入力フェーズ
-   - WebSocket設計
-   - ブラウザマイク入力
-   - PCM変換
-   - サーバー側VAD
-   - faster-whisper STT
-   - 発話終端でテキスト会話ターンへ接続
+3. 音声入力のサーバーSTT低レイテンシ化（Phase B）
+   - Phase A（バッチREST `POST /api/stt` + 独立STTサービス + クライアント録音）は実装済み。残りは実機での文字起こし精度・レイテンシ確認（実モデルでの faster-whisper 起動と試聴）
+   - Phase B: WebSocketストリーミング + サーバー側VAD + 部分認識で低レイテンシ化
 
 ## 注意点
 
@@ -295,6 +310,12 @@ MacBookローカル実サービス確認:
 - テキスト会話は同期REST。ユーザー発話はクライアント側で即時表示し、サーバー応答で置換する。
 - テキスト会話のキャンセルはクライアント側のrequest中断と画面上の破棄。サーバー側処理は完了まで続き、その間はbusyになる場合がある。
 - 読み上げON/OFFは設計には残すがMVPでは不要。
+- 音声入力はサーバー側STT（faster-whisper、別サービス）で行い、音声はLAN内で処理する。外部の音声認識サービスへは送らない（[ADR 0004](./adr/0004-server-side-stt.md)）。
+- ただしマイク取得（getUserMedia）はセキュアコンテキスト必須。localhost／https／Tauri では動くが、素のLAN http（例: スマホから `http://192.168.3.2`）ではマイクが使えず、その場合はマイクを無効表示にする。最終形は Tauri + サーバーSTT で録音から文字起こしまでLAN内完結。
+- STTサービス（`stt-server/`、既定 `127.0.0.1:8099`）はテキスト会話には不要な任意サービス。未起動でもテキスト会話は動く。起動は `scripts/mac/start-stt-mac.sh` / `scripts/wsl/start-stt-wsl.sh`。faster-whisper は重いため `uv run --extra whisper` で導入。
+- 設定はパネルを閉じたときに変更があれば自動保存する（保存ボタンなし）。保存は会話履歴クリアを伴う。変更がなければ保存しない。
+- 読み上げ音量はこの端末のlocalStorageのみに保存し、会話サーバーへは送らない。
+- no_ref読み上げの声質はTTSシード（`DEFAULT_TTS_SEED`、`GIC_TTS_SEED`で上書き）で固定する。`none`/`random` で従来のランダム挙動に戻る。
 - 現状の実機 `/api/speakers` は `none` のみ。MVPではこれを正常扱いにし、声質はIrodori-TTS-Server側のno-ref設定で調整する。
 - 参照音声登録APIとスクリプトは残すが、MVP外の将来用。手順は [Reference Voice Setup](./reference-voice-setup.md)。
 - `read_aloud_prompt` は将来用のメタデータで、現行Irodori-TTS-Serverのspeech endpointには直接渡していない。
