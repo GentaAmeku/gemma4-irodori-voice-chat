@@ -9,9 +9,16 @@ export type HealthResponse = {
   model: string;
   ollama_base_url?: string;
   tts_base_url?: string;
+  stt_base_url?: string;
   mock_services: boolean;
   ollama: DependencyStatus;
   tts: DependencyStatus;
+  // 未更新の会話サーバーは stt を返さないため任意扱い。
+  stt?: DependencyStatus;
+};
+
+export type SttResponse = {
+  text: string;
 };
 
 export type AppSettings = {
@@ -110,6 +117,14 @@ export const api = {
       body: JSON.stringify({ text }),
       signal,
     }),
+  stt: (baseUrl: string, audio: Blob, filename: string) => {
+    const body = new FormData();
+    body.append("file", audio, filename);
+    return request<SttResponse>(baseUrl, "/api/stt", {
+      method: "POST",
+      body,
+    });
+  },
   uploadCharacterImage: (baseUrl: string, file: File) => {
     const body = new FormData();
     body.append("file", file);

@@ -83,9 +83,15 @@ class HealthResponse(BaseModel):
     model: str
     ollama_base_url: str
     tts_base_url: str
+    stt_base_url: str
     mock_services: bool
     ollama: DependencyStatus
     tts: DependencyStatus
+    stt: DependencyStatus
+
+
+class SttResponse(BaseModel):
+    text: str
 
 
 class TextTurnRequest(BaseModel):

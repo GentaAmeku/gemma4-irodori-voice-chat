@@ -25,6 +25,10 @@ class AppConfig:
     tts_response_format: str = "wav"
     # no_ref音声の声質を固定するシード。None で都度ランダム(従来の挙動)。
     tts_seed: int | None = DEFAULT_TTS_SEED
+    # 音声入力の文字起こし(faster-whisper)を行う別サービス。会話サーバーはこれをプロキシする。
+    stt_base_url: str = "http://127.0.0.1:8099"
+    stt_model: str = "whisper-1"
+    stt_language: str = "ja"
     request_timeout_seconds: float = 90.0
     mock_services: bool = False
     data_dir: Path = DATA_DIR
@@ -53,6 +57,9 @@ def load_config() -> AppConfig:
         tts_model=os.getenv("GIC_TTS_MODEL", "irodori-tts"),
         tts_response_format=os.getenv("GIC_TTS_RESPONSE_FORMAT", "wav"),
         tts_seed=_parse_optional_int(os.getenv("GIC_TTS_SEED"), default=DEFAULT_TTS_SEED),
+        stt_base_url=os.getenv("GIC_STT_BASE_URL", "http://127.0.0.1:8099").rstrip("/"),
+        stt_model=os.getenv("GIC_STT_MODEL", "whisper-1"),
+        stt_language=os.getenv("GIC_STT_LANGUAGE", "ja"),
         request_timeout_seconds=float(os.getenv("GIC_REQUEST_TIMEOUT_SECONDS", "90")),
         mock_services=os.getenv("GIC_MOCK_SERVICES", "0") in {"1", "true", "TRUE", "yes", "YES"},
         data_dir=data_dir,

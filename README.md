@@ -41,6 +41,22 @@ cd server
 uv run pytest
 ```
 
+## STT Server（音声入力・任意）
+
+音声入力の文字起こしを行う別サービス（faster-whisper）。会話サーバーが `POST /api/stt` からプロキシする。テキスト会話には不要で、音声入力を使う場合のみ起動する。詳細は [stt-server/README.md](./stt-server/README.md)。
+
+```sh
+cd stt-server
+uv run --extra whisper uvicorn app.main:app --host 127.0.0.1 --port 8099
+```
+
+mock（モデル不要）:
+
+```sh
+cd stt-server
+GIC_STT_MOCK=1 uv run uvicorn app.main:app --host 127.0.0.1 --port 8099
+```
+
 ## Irodori-TTS-Server
 
 公式のOpenAI互換サーバーを別ディレクトリに用意します。

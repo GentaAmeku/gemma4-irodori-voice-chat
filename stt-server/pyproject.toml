@@ -1,0 +1,28 @@
+[project]
+name = "gemma4-irodori-stt-server"
+version = "0.1.0"
+description = "Speech-to-text service (faster-whisper) for Gemma4 Irodori Chat"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+]
+
+# faster-whisper(CTranslate2)は重いため任意依存にする。
+# 実STTを動かすときだけ入れる: `uv sync --extra whisper` または `uv run --extra whisper ...`
+# mockモード(GIC_STT_MOCK=1)とテストはこの依存なしで動く。
+[project.optional-dependencies]
+whisper = [
+    "faster-whisper>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

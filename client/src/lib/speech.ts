@@ -1,92 +1,125 @@
-// 音声入力(ブラウザの Web Speech API / SpeechRecognition)のヘルパー。
+// 音声入力(マイク録音 → サーバーSTT)のヘルパー。
 //
-// SpeechRecognition は Baseline 外の機能。Chrome/Edge/Safari は webkit プレフィックス付き、
-// Firefox は非対応。将来 Tauri の WebView で動かす場合も利用できないことがあるため、
-// 必ず機能検出(isSpeechRecognitionSupported)してから使い、未対応時はマイクを無効化する。
+// 録音はブラウザの MediaRecorder で行い、録音データを会話サーバーの /api/stt へ送って
+// faster-whisper で文字起こしする。音声はLAN内で処理され、外部の音声認識サービスへは送らない
+// (ADR 0004)。
+//
+// マイク取得(getUserMedia)と MediaRecorder はセキュアコンテキスト(localhost / https / Tauri)が
+// 必要。LAN の http で配信した場合は使えないため、必ず isMicCaptureSupported() で機能検出してから
+// 使い、未対応時はマイクを無効化する。
 
-// 標準の lib.dom には SpeechRecognition 本体・イベント型が無いため、使う分だけ補う。
-// (SpeechRecognitionResult / -ResultList / -Alternative は lib.dom に存在するため再定義しない)
-declare global {
-  interface SpeechRecognitionEvent extends Event {
-    readonly resultIndex: number;
-    readonly results: SpeechRecognitionResultList;
-  }
+export type MicRecording = {
+  blob: Blob;
+  filename: string;
+};
 
-  interface SpeechRecognitionErrorEvent extends Event {
-    readonly error: string;
-    readonly message: string;
-  }
+export type MicRecorder = {
+  // 録音を止め、録音データ(Blob)とファイル名を返す。マイクも解放する。
+  stop(): Promise<MicRecording>;
+  // 録音を破棄してマイクを解放する(送信しない)。
+  cancel(): void;
+};
 
-  interface SpeechRecognition extends EventTarget {
-    lang: string;
-    continuous: boolean;
-    interimResults: boolean;
-    maxAlternatives: number;
-    start(): void;
-    stop(): void;
-    abort(): void;
-    onstart: ((event: Event) => void) | null;
-    onresult: ((event: SpeechRecognitionEvent) => void) | null;
-    onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-    onend: ((event: Event) => void) | null;
-  }
-
-  type SpeechRecognitionConstructor = {
-    prototype: SpeechRecognition;
-    new (): SpeechRecognition;
-  };
-
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
-function getConstructor(): SpeechRecognitionConstructor | null {
+export function isMicCaptureSupported(): boolean {
   if (typeof window === "undefined") {
-    return null;
-  }
-  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
-}
-
-export function isSpeechRecognitionSupported(): boolean {
-  if (getConstructor() === null) {
     return false;
   }
-  // SpeechRecognition はセキュアコンテキスト(localhost / https / Tauri)が必要。
-  // LAN の http で配信した場合は start() が失敗するため、ここで弾く。
-  return typeof window === "undefined" || window.isSecureContext !== false;
-}
-
-export function createSpeechRecognition(lang: string): SpeechRecognition | null {
-  const Constructor = getConstructor();
-  if (!Constructor) {
-    return null;
+  // セキュアコンテキスト(localhost / https / Tauri)でないと getUserMedia は使えない。
+  if (window.isSecureContext === false) {
+    return false;
   }
-  const recognition = new Constructor();
-  recognition.lang = lang;
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-  return recognition;
+  return (
+    typeof navigator !== "undefined" &&
+    navigator.mediaDevices != null &&
+    typeof navigator.mediaDevices.getUserMedia === "function" &&
+    typeof window.MediaRecorder === "function"
+  );
 }
 
-// SpeechRecognition のエラーコードを日本語の案内に変換する。
-// 空文字を返した場合はユーザーへの通知不要(ユーザー操作による中断など)。
-export function speechErrorMessage(error: string): string {
-  switch (error) {
-    case "not-allowed":
-    case "service-not-allowed":
+// 対応する MediaRecorder の mimeType と拡張子を選ぶ。faster-whisper(ffmpeg/av)側で
+// webm/opus・ogg・mp4 いずれもデコードできる。
+function pickMimeType(): { mimeType: string; ext: string } {
+  const candidates = [
+    { mimeType: "audio/webm;codecs=opus", ext: "webm" },
+    { mimeType: "audio/webm", ext: "webm" },
+    { mimeType: "audio/ogg;codecs=opus", ext: "ogg" },
+    { mimeType: "audio/mp4", ext: "mp4" },
+  ];
+  if (typeof MediaRecorder.isTypeSupported === "function") {
+    for (const candidate of candidates) {
+      if (MediaRecorder.isTypeSupported(candidate.mimeType)) {
+        return candidate;
+      }
+    }
+  }
+  // ブラウザ既定に任せる(Safari 等)。
+  return { mimeType: "", ext: "webm" };
+}
+
+export async function startMicRecording(): Promise<MicRecorder> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const { mimeType, ext } = pickMimeType();
+  const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  const chunks: BlobPart[] = [];
+  recorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) {
+      chunks.push(event.data);
+    }
+  };
+  recorder.start();
+
+  const releaseStream = () => {
+    for (const track of stream.getTracks()) {
+      track.stop();
+    }
+  };
+
+  return {
+    stop() {
+      return new Promise<MicRecording>((resolve, reject) => {
+        recorder.onstop = () => {
+          releaseStream();
+          const rawType = recorder.mimeType || mimeType || "audio/webm";
+          const type = rawType.split(";", 1)[0];
+          resolve({ blob: new Blob(chunks, { type }), filename: `speech.${ext}` });
+        };
+        recorder.onerror = () => {
+          releaseStream();
+          reject(new Error("recording_failed"));
+        };
+        try {
+          recorder.stop();
+        } catch (error) {
+          releaseStream();
+          reject(error instanceof Error ? error : new Error("recording_failed"));
+        }
+      });
+    },
+    cancel() {
+      recorder.ondataavailable = null;
+      try {
+        recorder.stop();
+      } catch {
+        // 既に停止済みなどは無視する。
+      }
+      releaseStream();
+    },
+  };
+}
+
+// getUserMedia / 録音開始時のエラーを日本語の案内に変換する。
+export function micErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : "";
+  switch (name) {
+    case "NotAllowedError":
+    case "SecurityError":
       return "マイクの使用が許可されていません。ブラウザのマイク権限を確認してください。";
-    case "no-speech":
-      return "音声を聞き取れませんでした。もう一度お試しください。";
-    case "audio-capture":
+    case "NotFoundError":
+    case "DevicesNotFoundError":
       return "マイクが見つかりません。デバイスを確認してください。";
-    case "network":
-      return "音声認識サービスに接続できませんでした。";
-    case "aborted":
-      return "";
+    case "NotReadableError":
+      return "マイクにアクセスできませんでした。他のアプリが使用中でないか確認してください。";
     default:
-      return `音声入力でエラーが発生しました (${error})。`;
+      return "音声入力でエラーが発生しました。";
   }
 }

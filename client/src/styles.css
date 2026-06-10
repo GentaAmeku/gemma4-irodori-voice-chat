@@ -463,6 +463,22 @@
     color: var(--surface);
   }
 
+  /* 文字起こし中。録音は終わってサーバー処理待ち。点滅でビジーを示す。 */
+  .icon-btn.mic.transcribing {
+    color: var(--ink-faint);
+    animation: mic-transcribing 1.2s var(--ease) infinite;
+  }
+
+  @keyframes mic-transcribing {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   @keyframes mic-pulse {
     0% {
       box-shadow: 0 0 0 0 oklch(0.62 0.17 25 / 0.4);
@@ -476,7 +492,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .icon-btn.mic.recording {
+    .icon-btn.mic.recording,
+    .icon-btn.mic.transcribing {
       animation: none;
     }
 

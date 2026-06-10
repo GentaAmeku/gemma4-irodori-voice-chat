@@ -58,6 +58,44 @@ class OllamaClient:
         return content.strip()
 
 
+class SttClient:
+    """音声入力の文字起こし。faster-whisper の別サービス(OpenAI互換)をプロキシする。"""
+
+    def __init__(self, config: AppConfig, http_client: httpx.AsyncClient) -> None:
+        self.config = config
+        self.http = http_client
+
+    async def health(self) -> DependencyStatus:
+        if self.config.mock_services:
+            return DependencyStatus(ok=True, detail="mock")
+        try:
+            response = await self.http.get(f"{self.config.stt_base_url}/health")
+            response.raise_for_status()
+        except Exception as exc:  # noqa: BLE001 - surfaced as dependency detail.
+            return DependencyStatus(ok=False, detail=str(exc))
+        return DependencyStatus(ok=True)
+
+    async def transcribe(self, filename: str, content: bytes, content_type: str) -> str:
+        if self.config.mock_services:
+            return "音声入力のモック文字起こしです。"
+
+        files = {"file": (filename, content, content_type)}
+        data = {
+            "model": self.config.stt_model,
+            "language": self.config.stt_language,
+            "response_format": "json",
+        }
+        response = await self.http.post(
+            f"{self.config.stt_base_url}/v1/audio/transcriptions",
+            data=data,
+            files=files,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        text = payload.get("text", "") if isinstance(payload, dict) else ""
+        return text.strip()
+
+
 class IrodoriTtsClient:
     def __init__(self, config: AppConfig, http_client: httpx.AsyncClient) -> None:
         self.config = config
