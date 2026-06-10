@@ -9,11 +9,13 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "tauri": "tauri"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tauri-apps/cli": "^2.0.0",
     "prettier": "^3.8.4",
     "prettier-plugin-svelte": "^4.1.0",
     "svelte": "^5.0.0",

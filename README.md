@@ -183,6 +183,18 @@ pnpm build
 pnpm test:e2e
 ```
 
+## Desktop App（Tauri）
+
+Web クライアントを Tauri v2 でデスクトップアプリ化する足場を `client/src-tauri/` に用意しています。Tauri の WebView はセキュアコンテキストのため、ブラウザの http 配信では無効になる音声入力（Web Speech API / マイク）もアプリ内では動きます。
+
+```sh
+cd client
+pnpm tauri dev     # 開発（初回は Rust 依存のコンパイルで数分）
+pnpm tauri build   # 配布ビルド（.app / .dmg）
+```
+
+前提: Rust ツールチェーン（`rustup` / `cargo`）と Xcode Command Line Tools。詳細は [Tauri Setup](./docs/tauri-setup.md)。
+
 ## Documents
 
 - [MVP Plan](./docs/mvp-plan.md)

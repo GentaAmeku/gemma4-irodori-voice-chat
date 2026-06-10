@@ -83,7 +83,7 @@ export function speechErrorMessage(error: string): string {
     case "audio-capture":
       return "マイクが見つかりません。デバイスを確認してください。";
     case "network":
-      return "音声認識サービスに接続できませんでした。";
+      return "音声認識サービスに接続できませんでした。オンライン環境を確認してください。";
     case "aborted":
       return "";
     default:

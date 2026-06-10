@@ -146,6 +146,7 @@ Linux AMD:
 - [WSL AMD Setup](./wsl-amd-setup.md)
 - [MVP Plan](./mvp-plan.md)
 - [Design Notes](./design.md)
+- [Tauri Setup](./tauri-setup.md)
 - [Context Glossary](../CONTEXT.md)
 - [Gemma4 Irodori Setup Skill](../.agents/skills/gemma4-irodori-setup/SKILL.md)
 - [Gemma4 MacBook Local Setup Skill](../.agents/skills/gemma4-macbook-local-setup/SKILL.md)
@@ -282,6 +283,8 @@ MacBookローカル実サービス確認:
 - 一時的にサーバー側STT（faster-whisper）を実装（コミット `01be1b5`）したが、認識相違により revert。音声入力は Web Speech API のまま継続する。「LAN限定」はLLM推論・会話サーバー経路の話で、音声がChrome経由で外部音声認識（Google等）に渡るのは許容、というのが正しい意図
 - revert 後のローカル検証: `server` で `uv run pytest` / `pnpm -C client check` / `pnpm -C client build` / `pnpm -C client test:e2e`（結果は revert コミットに記録）
 - 失敗時ログ/UIメッセージ改善: 会話ターン失敗を段階別の構造化エラー（502/504 + `llm_*`/`tts_*` コード）＋サーバーログ（`gic.conversation`）化し、クライアントは原因別メッセージを表示。検証 `server` pytest 15 passed / `pnpm -C client check` 0 errors / build success / e2e 8 passed
+- 音声入力(Web Speech API)の仕上げ: 録音最大時間のセーフティ自動停止・アンマウント時クリーンアップ・network/無音メッセージ調整。`pnpm -C client check` 0 errors / build / e2e 8 passed
+- Tauri v2 の足場を `client/src-tauri/` に作成（公式CLIで init、productName=Irodori Chat / identifier=com.gentaameku.irodorichat / ウィンドウ1120×760 に調整、`tauri info` で設定検証）。初回 `tauri dev`/`build` は未実行（Rust初回コンパイルが必要）
 
 ## 次にやる候補
 
@@ -293,6 +296,8 @@ MacBookローカル実サービス確認:
    - セキュアコンテキスト（`pnpm dev` の localhost / 将来の Tauri）で、マイク録音→入力欄反映→送信を実機確認する
    - 認識精度・無音時の扱い・エラーメッセージの調整
    - 最終形は Tauri アプリ（MacBook）で音声入力を動かす
+3. Tauri 初回ビルドの実機確認
+   - 足場は `client/src-tauri/`（Tauri v2）に作成済み。`pnpm tauri dev` / `pnpm tauri build` を実機で通す（初回は Rust 依存のコンパイルで数分）。手順は [Tauri Setup](./tauri-setup.md)
 
 （完了: 失敗時ログとUIメッセージの改善 — 会話ターン失敗を段階別の構造化エラー＋サーバーログ化し、クライアントは原因別メッセージを表示）
 
@@ -318,7 +323,7 @@ MacBookローカル実サービス確認:
 - MacBookローカル構成は [MacBook Local Setup](./macbook-local-setup.md) と `gemma4-macbook-local-setup` skill を使う。
 - MacBookローカルのIrodori初回生成は長い。会話サーバーはMac用スクリプトで `GIC_REQUEST_TIMEOUT_SECONDS=600` にする。
 - 新UIは基本的に正として扱い、未接続UIは [UI Implementation Plan](./ui-implementation-plan.md) に沿って段階的に実処理へ接続する。
-- Tauri化はWebクライアントと会話サーバーが安定してから。
+- Tauri化はWebクライアントと会話サーバーが安定してから。足場（`client/src-tauri/`、Tauri v2）は用意済み。初回 `pnpm tauri dev` / `pnpm tauri build` は実機で通す。手順は [Tauri Setup](./tauri-setup.md)。Tauri の WebView はセキュアコンテキストなので、ブラウザで無効だった音声入力（Web Speech API）もアプリ内では動く。
 - スマホ実機対応もPC Webの縦切り後。
 
 ## セッションリセット時の開始プロンプト例

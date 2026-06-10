@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { api, ApiError, type AppSettings, type ConversationTurn, type HealthResponse } from "./api";
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
   import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
@@ -48,9 +48,12 @@
 
   // 音声入力(SpeechRecognition)。未対応ブラウザではマイクを無効化する。
   const speechSupported = isSpeechRecognitionSupported();
+  // マイクを開けっぱなしにしないための録音最大時間。
+  const MAX_SPEECH_MS = 60_000;
   let recording = $state(false);
   let recognition: SpeechRecognition | null = null;
   let speechBaseText = ""; // 録音開始時点で入力欄にあったテキスト
+  let speechTimer: number | null = null; // 録音最大時間のセーフティタイマー
 
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
@@ -92,6 +95,13 @@
 
   onMount(() => {
     void connect();
+  });
+
+  // アンマウント時に録音を確実に止め、マイクが開いたままにならないようにする。
+  onDestroy(() => {
+    clearSpeechTimer();
+    recognition?.abort();
+    recognition = null;
   });
 
   // ローカルプリファレンスは変更のたびに保存する
@@ -359,6 +369,7 @@
       stopSpeech();
     };
     next.onend = () => {
+      clearSpeechTimer();
       recording = false;
       recognition = null;
       statusMessage = "";
@@ -368,6 +379,7 @@
       next.start();
       recording = true;
       statusMessage = "音声を聞き取り中…";
+      startSpeechSafetyTimer();
     } catch {
       // start の二重呼び出しなどは無視して状態を戻す
       recording = false;
@@ -376,6 +388,7 @@
   }
 
   function stopSpeech() {
+    clearSpeechTimer();
     const current = recognition;
     recognition = null;
     recording = false;
@@ -385,6 +398,24 @@
       current.onerror = null;
       current.onend = null;
       current.stop();
+    }
+  }
+
+  // 長時間マイクを開けっぱなしにしないためのセーフティ。MAX_SPEECH_MS で自動停止する。
+  function startSpeechSafetyTimer() {
+    clearSpeechTimer();
+    speechTimer = window.setTimeout(() => {
+      if (recording) {
+        stopSpeech();
+        statusMessage = "音声入力が長くなったため停止しました。続きはもう一度マイクを押してください。";
+      }
+    }, MAX_SPEECH_MS);
+  }
+
+  function clearSpeechTimer() {
+    if (speechTimer !== null) {
+      window.clearTimeout(speechTimer);
+      speechTimer = null;
     }
   }
 
