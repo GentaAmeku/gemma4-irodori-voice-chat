@@ -270,6 +270,7 @@ MacBookローカル実サービス確認:
 - desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/speakers` は `none` のみ。MVP方針では正常
 - desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `POST /api/turns/text` は成功し、返答 `はい、しっかり受け取ったよ。これからよろしくね。` とWAV URL `/media/audio/853491d11431432aab019ba03a0bcfd1.wav` が返った
 - desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 399404` でMacBookから取得可能
+- `client/.env.example` を追加し、`client/.env.local` で `VITE_GIC_DEFAULT_BASE_URL` を指定できる手順に整理。`client/.env.local` はgit管理外
 
 ## 次にやる候補
 

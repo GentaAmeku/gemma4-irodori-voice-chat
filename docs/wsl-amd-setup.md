@@ -300,6 +300,14 @@ pnpm install
 pnpm dev
 ```
 
+接続先の既定値は `client/.env.local` で指定できます。
+
+```env
+VITE_GIC_DEFAULT_BASE_URL=http://<desktop-pc-lan-ip>:8000
+```
+
+`.env.local` を変更した場合は `pnpm dev` を再起動してください。
+
 MacBookブラウザで `http://127.0.0.1:5173` を開き、画面の接続先にdesktop PCの会話サーバーURLを指定します。
 
 ```text

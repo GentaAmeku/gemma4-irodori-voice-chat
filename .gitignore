@@ -12,6 +12,8 @@ dist/
 .pnpm-store/
 test-results/
 playwright-report/
+client/.env.local
+client/.env.*.local
 
 # Logs
 *.log
