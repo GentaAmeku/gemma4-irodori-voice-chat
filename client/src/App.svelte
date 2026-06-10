@@ -9,6 +9,7 @@
     type SpeakerOption,
   } from "./api";
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
+  import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
   import { loadPrefs, savePrefs } from "./lib/prefs";
   import AudioChip from "./lib/AudioChip.svelte";
   import CharacterRail from "./lib/CharacterRail.svelte";
@@ -50,10 +51,7 @@
   let connecting = $state(false);
   let clearingHistory = $state(false);
   let uploadingImage = $state(false);
-  let conversationStage = $state<"thinking" | "synthesizing" | null>(null);
-  let conversationStageTimer: number | null = null;
-  let activeTurnAbortController: AbortController | null = null;
-  let activeTurnId: string | null = null;
+  let activeConversation = $state<ActiveConversation | null>(null);
 
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
@@ -75,6 +73,7 @@
       ? "MacBookローカル構成では、このMac上の会話サーバーに接続します。"
       : "MacBookからはdesktop PC上の会話サーバーを指定します。例: http://<desktop-pc-lan-ip>:8000",
   );
+  const conversationStage = $derived(activeConversation?.stage ?? null);
   const pendingLabel = $derived(
     conversationStage === "synthesizing" ? `${characterName}が読み上げ準備中…` : `${characterName}が返答生成中…`,
   );
@@ -142,8 +141,6 @@
       return;
     }
     displayState = "conversing";
-    conversationStage = "thinking";
-    startConversationStageTimer();
     errorMessage = "";
     statusMessage = `${characterName}が返答生成中`;
     textInput = "";
@@ -158,17 +155,24 @@
     };
     turns = [...turns, pendingTurn];
     freshId = pendingId;
-    activeTurnId = pendingId;
-    activeTurnAbortController = new AbortController();
+    const abortController = new AbortController();
+    activeConversation = {
+      turnId: pendingId,
+      transport: "rest",
+      stage: "thinking",
+      stageTimer: null,
+      abortController,
+    };
+    startConversationStageTimer(pendingId);
     try {
-      const turn = await api.textTurn(baseUrl, text, activeTurnAbortController.signal);
-      if (activeTurnId !== pendingId) {
+      const turn = await api.textTurn(baseUrl, text, abortController.signal);
+      if (!isActiveConversation(pendingId)) {
         return;
       }
       turns = turns.map((existing) => (existing.id === pendingId ? toDisplayTurn(turn, pendingId) : existing));
       autoplayId = prefs.autoplay ? pendingId : null;
       displayState = "ready";
-      clearConversationStage();
+      clearActiveConversation();
       statusMessage = "";
     } catch (error) {
       if (isAbortError(error)) {
@@ -179,28 +183,25 @@
         existing.id === pendingId ? { ...existing, state: "error", errorMessage: nextErrorMessage } : existing,
       );
       displayState = "ready";
-      clearConversationStage();
+      clearActiveConversation();
       errorMessage = nextErrorMessage;
       statusMessage = "返答に失敗しました";
     } finally {
-      if (activeTurnId === pendingId) {
-        activeTurnId = null;
-        activeTurnAbortController = null;
+      if (isActiveConversation(pendingId)) {
+        clearActiveConversation();
       }
     }
   }
 
   function cancelTextTurn() {
-    if (displayState !== "conversing" || !activeTurnId) {
+    if (displayState !== "conversing" || !activeConversation) {
       return;
     }
-    const cancelledId = activeTurnId;
-    activeTurnAbortController?.abort();
-    activeTurnAbortController = null;
-    activeTurnId = null;
+    const cancelledId = activeConversation.turnId;
+    cancelActiveConversation(activeConversation);
+    clearActiveConversation();
     turns = turns.filter((turn) => turn.id !== cancelledId);
     displayState = "ready";
-    clearConversationStage();
     errorMessage = "";
     statusMessage = "キャンセルしました";
   }
@@ -285,26 +286,41 @@
     statusMessage = "自動再生できませんでした。メッセージの再生ボタンから再生してください。";
   }
 
-  function startConversationStageTimer() {
+  function startConversationStageTimer(turnId: string) {
     clearConversationStageTimer();
-    conversationStageTimer = window.setTimeout(() => {
-      if (displayState === "conversing") {
-        conversationStage = "synthesizing";
+    const stageTimer = window.setTimeout(() => {
+      if (displayState === "conversing" && isActiveConversation(turnId) && activeConversation) {
+        activeConversation = { ...activeConversation, stage: "synthesizing", stageTimer: null };
         statusMessage = `${characterName}が読み上げ準備中`;
       }
-    }, 12_000);
-  }
-
-  function clearConversationStageTimer() {
-    if (conversationStageTimer !== null) {
-      window.clearTimeout(conversationStageTimer);
-      conversationStageTimer = null;
+    }, SYNTHESIZING_HINT_DELAY_MS);
+    if (isActiveConversation(turnId) && activeConversation) {
+      activeConversation = { ...activeConversation, stageTimer };
     }
   }
 
-  function clearConversationStage() {
-    clearConversationStageTimer();
-    conversationStage = null;
+  function clearConversationStageTimer() {
+    if (activeConversation?.stageTimer !== null && activeConversation?.stageTimer !== undefined) {
+      window.clearTimeout(activeConversation.stageTimer);
+      activeConversation = { ...activeConversation, stageTimer: null };
+    }
+  }
+
+  function clearActiveConversation() {
+    if (activeConversation?.stageTimer !== null && activeConversation?.stageTimer !== undefined) {
+      window.clearTimeout(activeConversation.stageTimer);
+    }
+    activeConversation = null;
+  }
+
+  function isActiveConversation(turnId: string): boolean {
+    return activeConversation?.turnId === turnId;
+  }
+
+  function cancelActiveConversation(conversation: ActiveConversation) {
+    if (conversation.transport === "rest") {
+      conversation.abortController.abort();
+    }
   }
 
   function formatError(error: unknown): string {

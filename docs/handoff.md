@@ -242,15 +242,26 @@ MacBookローカル実サービス確認:
 - 会話サーバー経由の参照音声登録APIを追加。MacBookからIrodori 8088番へ直接接続できない標準構成でも、会話サーバー8000番へアップロードしてIrodoriへ登録できる
 - `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 10 passed
 - `bash -n scripts/register-conversation-voice.sh scripts/register-irodori-voice.sh scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh`: success
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `POST /api/speakers/endpoint_check` は `unsupported_voice_type` の400を返し、新しい参照音声登録endpointの反映を確認
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `curl http://192.168.3.2:8000/api/health` は `ready: true` / `gemma4:12b` / `mock_services: false`
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/settings` は `speech_speed: 1.0`
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/speakers` は引き続き `none` のみ
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `POST /api/turns/text` は成功し、返答 `了解したよ。準備ができたら教えてね。` とWAV URL `/media/audio/d010f601b33642aebd8c7630b65c4059.wav` が返った
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 326444` でMacBookから取得可能
+- Phase 4残作業の会話進行状態型整理: `ActiveConversation` と `transport` を追加し、現在の同期RESTキャンセルを将来のjob/WebSocket方式へ拡張しやすい形に整理
+- `pnpm -C client format`: success
+- `pnpm -C client check`: 0 errors
+- `pnpm -C client build`: success
+- `pnpm -C client test:e2e`: 6 passed
+- `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 10 passed
 
 ## 次にやる候補
 
 推奨順:
 
 1. 参照音声ファイルを用意し、`scripts/register-conversation-voice.sh` でdesktop PCの会話サーバーへアップロードして `/api/speakers` で `none` 以外が出ることを実機確認する
-2. 将来のジョブID方式またはWebSocket方式へ移れるよう、会話進行状態の型を整理する
-3. 失敗時ログとUIメッセージの改善
-4. 音声入力フェーズ
+2. 失敗時ログとUIメッセージの改善
+3. 音声入力フェーズ
    - WebSocket設計
    - ブラウザマイク入力
    - PCM変換
