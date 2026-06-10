@@ -120,6 +120,7 @@ Linux AMD:
 
 - [Verification Guide](./verification.md)
 - [MacBook Local Setup](./macbook-local-setup.md)
+- [UI Implementation Plan](./ui-implementation-plan.md)
 - [WSL AMD Setup](./wsl-amd-setup.md)
 - [MVP Plan](./mvp-plan.md)
 - [Design Notes](./design.md)
@@ -185,10 +186,10 @@ MacBookローカル実サービス確認:
 
 1. desktop PC側WSLリポジトリへ最新修正を反映し、会話サーバーを再起動する
 2. 返答中表示と新しい人格プロンプトを実機UIで再確認する
-3. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
-4. MacBookローカルIrodoriの生成待ちUI/timeout表示を改善する
-5. 失敗時ログとUIメッセージの改善
-6. UIデザイン調整（別エージェント検討中）
+3. [UI Implementation Plan](./ui-implementation-plan.md) のPhase 1に沿って、デザイン実装の仕上げを行う
+4. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
+5. MacBookローカルIrodoriの生成待ちUI/timeout表示を改善する
+6. 失敗時ログとUIメッセージの改善
 7. 音声入力フェーズ
    - WebSocket設計
    - ブラウザマイク入力
@@ -210,6 +211,7 @@ MacBookローカル実サービス確認:
 - Windows AMD環境セットアップやLAN公開の切り分けは `gemma4-windows-amd-setup` skill を使う。
 - MacBookローカル構成は [MacBook Local Setup](./macbook-local-setup.md) と `gemma4-macbook-local-setup` skill を使う。
 - MacBookローカルのIrodori初回生成は長い。会話サーバーはMac用スクリプトで `GIC_REQUEST_TIMEOUT_SECONDS=600` にする。
+- 新UIは基本的に正として扱い、未接続UIは [UI Implementation Plan](./ui-implementation-plan.md) に沿って段階的に実処理へ接続する。
 - Tauri化はWebクライアントと会話サーバーが安定してから。
 - スマホ実機対応もPC Webの縦切り後。
 
