@@ -3,7 +3,7 @@
   import { api, ApiError, type AppSettings, type ConversationTurn, type HealthResponse } from "./api";
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
   import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
-  import { loadPrefs, savePrefs } from "./lib/prefs";
+  import { loadPrefs, savePrefs, TONE_PRESETS } from "./lib/prefs";
   import AudioChip from "./lib/AudioChip.svelte";
   import CharacterRail from "./lib/CharacterRail.svelte";
   import Icon from "./lib/Icon.svelte";
@@ -48,7 +48,9 @@
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
 
-  const characterName = $derived(settings?.character_name ?? "リノン");
+  const previewSettings = $derived(settingsOpen && settingsDraft ? settingsDraft : settings);
+  const characterName = $derived(previewSettings?.character_name ?? "リノン");
+  const characterPromptPreview = $derived(previewSettings ? buildCharacterPromptPreview(previewSettings) : "");
   const canConverse = $derived(displayState === "ready" && textInput.trim().length > 0);
   const characterImageUrl = $derived(`${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`);
   const statusItems = $derived(buildStatusItems(health, displayState, baseUrl));
@@ -370,6 +372,12 @@
       return false;
     }
   }
+
+  function buildCharacterPromptPreview(nextSettings: AppSettings): string {
+    const tone = TONE_PRESETS.find((item) => item.id === nextSettings.tone_preset)?.label ?? "落ち着き";
+    const distance = nextSettings.distance <= 33 ? "ていねい" : nextSettings.distance >= 67 ? "親しい" : "ほどよい";
+    return `${nextSettings.character_prompt}\n\n口調: ${tone} / 距離感: ${distance}`;
+  }
 </script>
 
 <svelte:head>
@@ -381,7 +389,7 @@
     name={characterName}
     model={health?.model ?? null}
     mock={health?.mock_services ?? false}
-    prompt={settings?.character_prompt ?? ""}
+    prompt={characterPromptPreview}
     imageUrl={characterImageUrl}
     {imageMissing}
     stateLabel={DISPLAY_LABELS[displayState]}

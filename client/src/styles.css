@@ -271,6 +271,7 @@
     color: var(--ink-soft);
     text-align: center;
     line-height: 1.7;
+    white-space: pre-line;
     max-inline-size: 264px;
     display: -webkit-box;
     -webkit-line-clamp: 7;
