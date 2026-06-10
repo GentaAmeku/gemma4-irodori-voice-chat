@@ -127,6 +127,23 @@ MacBookローカル用クライアントでは、接続先の既定値は `http:
 - 会話サーバーの `/api/health` が `ready: true` を返す
 - `POST /api/turns/text` でLLM応答とWAV URLが返る
 
+## 7. 参照音声
+
+MacBookローカル構成でキャラクターの参照音声を使う場合は、MacBook上のIrodori-TTS-Serverへ登録します。
+
+```sh
+TTS_BASE_URL=http://127.0.0.1:8088 \
+  ./scripts/register-irodori-voice.sh rinon /path/to/rinon.wav
+```
+
+または、Irodori-TTS-Serverの標準 `voices/` に直接置きます。
+
+```sh
+cp /path/to/rinon.wav ../Irodori-TTS-Server/voices/rinon.wav
+```
+
+詳細は [Reference Voice Setup](./reference-voice-setup.md) を参照してください。
+
 ## 注意点
 
 - MacBookのIrodori-TTS-ServerはCPU backend想定のため、Windows AMD / WSL ROCm構成より遅い可能性があります。

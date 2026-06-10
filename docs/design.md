@@ -37,6 +37,8 @@
 - For text turns, the MVP client UI shows the user's message immediately and displays an assistant pending state while the synchronous REST request is running.
 - Voice-input progress states such as listening, thinking, speaking are deferred until the voice phase.
 - The MVP supports canceling an active conversation turn.
+- For synchronous REST text turns, canceling aborts the client request, removes the pending turn from the UI, and ignores late results. It does not guarantee server-side LLM or TTS cancellation.
+- After a REST text turn is canceled in the client, the conversation server may remain busy until the already-started generation finishes.
 - Canceling during listening stops audio capture and discards the turn.
 - Canceling during thinking discards the result of the turn.
 - Canceling during speaking stops playback and ends the turn.
@@ -51,9 +53,9 @@
 - Future emotion control should be represented separately from the response text, not embedded in natural-language output.
 - The client UI does not edit Ollama connection settings or model names in the MVP.
 - The client UI may display the currently configured LLM model reported by the conversation server.
-- In the MVP, speaker selection is the effective read-aloud control exposed to the user.
+- In the MVP, speaker selection and speech speed are the effective read-aloud controls exposed to the user.
 - Natural-language read-aloud guidance may be stored as future-facing character metadata, but Irodori-TTS-Server's current OpenAI-compatible speech endpoint does not directly consume it as a prompt.
-- Detailed TTS parameters such as speed, style, steps, and auto-style are fixed or server-side only in the MVP.
+- Detailed TTS parameters such as style, steps, and auto-style are fixed or server-side only in the MVP.
 - The conversation server retrieves available speaker options from irodori-TTS and exposes them to client apps.
 - For stable voice tone, the MVP expects reference voices to be registered in Irodori-TTS-Server. If only `none` is available, voice tone may not match the intended character.
 - PC and smartphone clients share the same information architecture.

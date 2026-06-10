@@ -1,6 +1,6 @@
 // クライアントローカルの会話プリファレンス。
-// 口調・距離感・話す速さは将来機能のためのUIで、会話サーバーへはまだ送られない。
-// 自動読み上げのみクライアント側で実際に効く。
+// 口調・距離感は将来機能のためのUIで、会話サーバーへはまだ送られない。
+// 自動読み上げのみクライアント側で実際に効く。話す速さはサーバー設定で扱う。
 
 export type TonePreset = {
   id: string;
@@ -18,14 +18,12 @@ export const TONE_PRESETS: TonePreset[] = [
 export type LocalPrefs = {
   tone: string;
   distance: number;
-  speed: number;
   autoplay: boolean;
 };
 
 export const DEFAULT_PREFS: LocalPrefs = {
   tone: "calm",
   distance: 40,
-  speed: 1.0,
   autoplay: true,
 };
 
@@ -41,7 +39,6 @@ export function loadPrefs(): LocalPrefs {
     return {
       tone: typeof parsed.tone === "string" ? parsed.tone : DEFAULT_PREFS.tone,
       distance: typeof parsed.distance === "number" ? parsed.distance : DEFAULT_PREFS.distance,
-      speed: typeof parsed.speed === "number" ? parsed.speed : DEFAULT_PREFS.speed,
       autoplay: typeof parsed.autoplay === "boolean" ? parsed.autoplay : DEFAULT_PREFS.autoplay,
     };
   } catch {

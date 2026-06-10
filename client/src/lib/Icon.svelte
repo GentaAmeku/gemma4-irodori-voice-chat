@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { name }: { name: "play" | "pause" | "send" | "mic" | "close" | "gear" } = $props();
+  let { name }: { name: "play" | "pause" | "send" | "stop" | "mic" | "close" | "gear" } = $props();
 </script>
 
 {#if name === "play"}
@@ -22,6 +22,10 @@
     aria-hidden="true"
   >
     <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+{:else if name === "stop"}
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <rect x="7" y="7" width="10" height="10" rx="2" />
   </svg>
 {:else if name === "mic"}
   <svg

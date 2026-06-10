@@ -1,6 +1,6 @@
 # Handoff
 
-最終更新: 2026-06-09
+最終更新: 2026-06-10
 
 ## 現在のゴール
 
@@ -66,6 +66,7 @@ MacBook client
   - `POST /api/character-image`
 - Ollama adapter
 - irodori-TTS adapter
+- 話す速さ `speech_speed` の設定保存とIrodori speech `speed` への橋渡し
 - busy制御
 - 設定保存時の履歴クリア
 - キャラクター画像アップロード
@@ -79,11 +80,18 @@ MacBook client
 - 会話サーバー / Ollama / irodori-TTS の状態パネル
 - テキスト会話
 - 送信直後のユーザー発話表示
-- 応答待ち表示（`リノンが返答中...`）
+- 応答待ち表示（`リノンが返答生成中…` / `リノンが読み上げ準備中…`）
+- 返答待ち中のキャンセル
+- キャンセル済みturnの画面上破棄と遅延応答の無視
 - 応答履歴
 - 最後の読み上げプレイヤー
 - 自動再生失敗時の手動再生導線
 - 設定パネル
+- 話者選択と話す速さの保存
+- 設定パネルのフォーム説明 `aria-describedby` 紐付け
+- 設定保存 / 接続確認 / 画像アップロード / 履歴クリア中の二重送信防止
+- 会話サーバー未接続 / Ollama不可 / irodori-TTS不可 / TTS timeout / 自動再生失敗の原因別エラー表示
+- 長時間生成向けの待機表示（返答生成中 -> 読み上げ準備中）
 - 履歴クリア
 - キャラクター画像アップロード
 
@@ -95,6 +103,7 @@ WSL標準:
 - `scripts/wsl/start-irodori-wsl-amd.sh`
 - `scripts/wsl/start-conversation-server-wsl.sh`
 - `scripts/wsl/check-wsl-stack.sh`
+- `scripts/register-irodori-voice.sh`
 
 MacBookローカル:
 
@@ -119,6 +128,7 @@ Linux AMD:
 ## 重要ドキュメント
 
 - [Verification Guide](./verification.md)
+- [Reference Voice Setup](./reference-voice-setup.md)
 - [MacBook Local Setup](./macbook-local-setup.md)
 - [UI Implementation Plan](./ui-implementation-plan.md)
 - [WSL AMD Setup](./wsl-amd-setup.md)
@@ -181,14 +191,53 @@ MacBookローカル実サービス確認:
 - MacBookローカル自動チェック: `uv run pytest` 4 passed / `pnpm check` 0 errors / `pnpm build` success / `pnpm test:e2e` 3 passed / `bash -n scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh` success
 - desktop PC側WSLリポジトリへの最新修正反映と会話サーバー再起動: done
 - desktop PC / WSL実機UIで返答中表示と新しい人格プロンプトを再確認: done
+- UI Implementation Plan Phase 1相当のクライアント仕上げ: done
+- `pnpm -C client format`: success
+- `pnpm -C client check`: 0 errors
+- `pnpm -C client build`: success
+- `pnpm -C client test:e2e`: 5 passed
+- `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest`: 4 passed
+- Browser desktop/mobile layout確認: 横スクロールなし、ヘッダー / スレッド / 入力欄の重なりなし、mobile設定パネルがviewport内に表示されることを確認
+- Browser screenshot取得: Browser側の `Page.captureScreenshot` timeoutで未取得。DOM / viewport寸法確認は完了
+- UI Implementation Plan Phase 2の実装・手順整備: done
+- Irodori-TTS-Serverの実装確認: `/v1/audio/voices` はAPI uploadと `voices/` スキャンに対応、`/v1/audio/speech` は `speed` に対応
+- `scripts/register-irodori-voice.sh` 追加
+- `speech_speed` を会話サーバー設定として保存し、Irodori speech requestへ `speed` として送信
+- `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest`: 6 passed
+- `pnpm -C client format`: success
+- `pnpm -C client check`: 0 errors
+- `pnpm -C client build`: success
+- `pnpm -C client test:e2e`: 5 passed
+- `bash -n scripts/register-irodori-voice.sh scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh`: success
+- 参照音声ファイル候補: このリポジトリ近辺では未検出。実機で `none` 以外の話者確認は参照音声ファイル用意後に実施
+- desktop PC実サービス確認: `curl http://192.168.3.2:8000/api/health` は `ready: true` / `gemma4:12b` / `mock_services: false`
+- desktop PC実サービス確認: `/api/speakers` は `none` のみ
+- desktop PC実サービス確認: `/api/settings` に `speech_speed` がまだ無い。会話サーバー再起動後も同じため、desktop PC側会話サーバーはPhase 2のサーバー変更未反映
+- desktop PC実サービス確認: `POST /api/turns/text` は成功し、WAV URL `/media/audio/dcc8d7f2cd31404bbcdb52cf62890517.wav` が返った
+- desktop PC実サービス確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 341804` でMacBookから取得可能
+- desktop PC実サービス確認: MacBook上の新クライアントを `http://192.168.3.2:8000` へ接続し、設定パネルが `speech_speed` 欠落時も `1.00×` として表示されることを確認
+- desktop PC再起動後の再確認: `curl http://192.168.3.2:8000/api/health` は `ready: true` / `gemma4:12b` / `mock_services: false`
+- desktop PC再起動後の再確認: `/api/settings` は引き続き `speech_speed` なし
+- desktop PC再起動後の再確認: `/api/speakers` は引き続き `none` のみ
+- desktop PC再起動後の再確認: `POST /api/turns/text` は成功し、返答 `了解、しっかり届いているよ。` とWAV URL `/media/audio/81bc04ab0cdf4a39900bcc3829896199.wav` が返った
+- desktop PC再起動後の再確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 253484` でMacBookから取得可能
+- UI Implementation Plan Phase 4のクライアント側キャンセル: done
+- Phase 4キャンセルの実機UI確認: desktop PC会話サーバーへ接続したMacBook Web UIで、キャンセル後にpending発話が消え、遅延応答が画面へ反映されないことを確認
+- Phase 4の制約: 同期RESTのため、キャンセルはクライアント側request中断と画面上の破棄。サーバー側LLM/TTS処理停止までは保証しない
+- `pnpm -C client format`: success
+- `pnpm -C client check`: 0 errors
+- `pnpm -C client build`: success
+- `pnpm -C client test:e2e`: 6 passed
+- `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 7 passed
+- `bash -n scripts/register-irodori-voice.sh scripts/mac/*.sh scripts/wsl/*.sh scripts/*.sh`: success
 
 ## 次にやる候補
 
 推奨順:
 
-1. [UI Implementation Plan](./ui-implementation-plan.md) のPhase 1に沿って、デザイン実装の仕上げを行う
-2. 参照音声をIrodori-TTS-Serverへ登録し、`/api/speakers` で話者候補が増えることを確認する
-3. MacBookローカルIrodoriの生成待ちUI/timeout表示を改善する
+1. desktop PC側WSLリポジトリへPhase 2/4の修正を反映し、会話サーバー再起動後に `/api/settings` の `speech_speed` を実機確認する
+2. 参照音声ファイルを用意し、Irodori-TTS-Serverへ登録して `/api/speakers` で `none` 以外が出ることを実機確認する
+3. 将来のジョブID方式またはWebSocket方式へ移れるよう、会話進行状態の型を整理する
 4. 失敗時ログとUIメッセージの改善
 5. 音声入力フェーズ
    - WebSocket設計
@@ -205,9 +254,11 @@ MacBookローカル実サービス確認:
 - 会話履歴はMVPではメモリ保持。
 - 同時会話は1つのみ。busy時は409で拒否。
 - テキスト会話は同期REST。ユーザー発話はクライアント側で即時表示し、サーバー応答で置換する。
+- テキスト会話のキャンセルはクライアント側のrequest中断と画面上の破棄。サーバー側処理は完了まで続き、その間はbusyになる場合がある。
 - 読み上げON/OFFは設計には残すがMVPでは不要。
-- 現状の実機 `/api/speakers` は `none` のみ。声質をキャラクターに寄せるにはIrodori-TTS-Serverへ参照音声を登録する必要がある。
+- 現状の実機 `/api/speakers` は `none` のみ。声質をキャラクターに寄せるにはIrodori-TTS-Serverへ参照音声を登録する必要がある。手順は [Reference Voice Setup](./reference-voice-setup.md)。
 - `read_aloud_prompt` は将来用のメタデータで、現行Irodori-TTS-Serverのspeech endpointには直接渡していない。
+- `speech_speed` はIrodori-TTS-Serverのspeech endpointへ `speed` として渡す。
 - Windows AMD環境セットアップやLAN公開の切り分けは `gemma4-windows-amd-setup` skill を使う。
 - MacBookローカル構成は [MacBook Local Setup](./macbook-local-setup.md) と `gemma4-macbook-local-setup` skill を使う。
 - MacBookローカルのIrodori初回生成は長い。会話サーバーはMac用スクリプトで `GIC_REQUEST_TIMEOUT_SECONDS=600` にする。

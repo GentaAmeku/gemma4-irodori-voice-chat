@@ -33,6 +33,7 @@ class AppSettings(BaseModel):
         max_length=2000,
     )
     speaker_id: str = Field(default="none", min_length=1, max_length=120)
+    speech_speed: float = Field(default=1.0, ge=0.25, le=4.0)
 
 
 class SpeakerOption(BaseModel):

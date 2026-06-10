@@ -896,6 +896,15 @@
     cursor: default;
   }
 
+  .send.cancel {
+    background: var(--ink);
+    color: var(--surface);
+  }
+
+  .send.cancel:hover {
+    background: var(--ink-soft);
+  }
+
   .send svg {
     inline-size: 18px;
     block-size: 18px;
@@ -949,11 +958,7 @@
   dialog.panel[open] {
     display: flex;
     flex-direction: column;
-    transform: translateX(0);
-
-    @starting-style {
-      transform: translateX(100%);
-    }
+    transform: none;
   }
 
   dialog.panel::backdrop {
@@ -966,10 +971,6 @@
 
   dialog.panel[open]::backdrop {
     background: rgb(20 18 15 / 28%);
-
-    @starting-style {
-      background: rgb(20 18 15 / 0%);
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1028,6 +1029,13 @@
     scrollbar-width: thin;
     scrollbar-color: var(--line-strong) transparent;
     padding: 6px 20px 28px;
+  }
+
+  .panel-status {
+    min-block-size: 1.5em;
+    padding-block-start: 8px;
+    font-size: var(--fs-caption);
+    color: var(--ink-soft);
   }
 
   .sect {
@@ -1292,6 +1300,13 @@
     border-color: var(--ink-ghost);
     color: var(--ink-soft);
     background: var(--surface-3);
+  }
+
+  .dropzone.disabled {
+    border-color: var(--line);
+    color: var(--ink-ghost);
+    background: var(--surface-3);
+    cursor: default;
   }
 
   /* 接続状態リスト */

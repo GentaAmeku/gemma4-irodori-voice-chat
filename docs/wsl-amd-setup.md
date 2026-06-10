@@ -186,6 +186,22 @@ curl http://127.0.0.1:8088/health
 curl http://127.0.0.1:8088/v1/audio/voices
 ```
 
+参照音声を登録する場合:
+
+```bash
+cd ~/ghq/gemma4-irodori-voice-chat
+TTS_BASE_URL=http://127.0.0.1:8088 \
+  ./scripts/register-irodori-voice.sh rinon /path/to/rinon.wav
+```
+
+または、WSL側のIrodori-TTS-Serverに直接置きます。
+
+```bash
+cp /path/to/rinon.wav ../Irodori-TTS-Server/voices/rinon.wav
+```
+
+詳細は [Reference Voice Setup](./reference-voice-setup.md) を参照してください。
+
 ## 7. 会話サーバー
 
 別ターミナルで起動します。

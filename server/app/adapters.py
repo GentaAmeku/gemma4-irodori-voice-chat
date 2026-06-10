@@ -108,6 +108,7 @@ class IrodoriTtsClient:
                 "input": text,
                 "voice": {"id": settings.speaker_id},
                 "response_format": self.config.tts_response_format,
+                "speed": settings.speech_speed,
             },
         )
         response.raise_for_status()

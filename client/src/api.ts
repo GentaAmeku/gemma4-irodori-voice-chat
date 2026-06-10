@@ -19,6 +19,7 @@ export type AppSettings = {
   character_prompt: string;
   read_aloud_prompt: string;
   speaker_id: string;
+  speech_speed: number;
 };
 
 export type SpeakerOption = {
@@ -70,24 +71,32 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
   return (await response.json()) as T;
 }
 
+function normalizeSettings(settings: AppSettings | Omit<AppSettings, "speech_speed">): AppSettings {
+  return {
+    ...settings,
+    speech_speed: "speech_speed" in settings && typeof settings.speech_speed === "number" ? settings.speech_speed : 1.0,
+  };
+}
+
 export const api = {
   health: (baseUrl: string) => request<HealthResponse>(baseUrl, "/api/health"),
-  settings: (baseUrl: string) => request<AppSettings>(baseUrl, "/api/settings"),
+  settings: async (baseUrl: string) => normalizeSettings(await request<AppSettings>(baseUrl, "/api/settings")),
   saveSettings: (baseUrl: string, settings: AppSettings) =>
     request<AppSettings>(baseUrl, "/api/settings", {
       method: "PUT",
       body: JSON.stringify(settings),
-    }),
+    }).then(normalizeSettings),
   speakers: (baseUrl: string) => request<SpeakerOption[]>(baseUrl, "/api/speakers"),
   history: (baseUrl: string) => request<HistoryResponse>(baseUrl, "/api/history"),
   clearHistory: (baseUrl: string) =>
     request<HistoryResponse>(baseUrl, "/api/history", {
       method: "DELETE",
     }),
-  textTurn: (baseUrl: string, text: string) =>
+  textTurn: (baseUrl: string, text: string, signal?: AbortSignal) =>
     request<ConversationTurn>(baseUrl, "/api/turns/text", {
       method: "POST",
       body: JSON.stringify({ text }),
+      signal,
     }),
   uploadCharacterImage: (baseUrl: string, file: File) => {
     const body = new FormData();

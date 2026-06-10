@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import httpx
@@ -38,6 +39,56 @@ def test_legacy_default_character_prompt_is_migrated(tmp_path: Path) -> None:
     settings = store.load()
 
     assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_tts_request_includes_selected_speaker_and_speed(tmp_path: Path) -> None:
+    captured_json: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_json
+        captured_json = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, content=b"RIFF")
+
+    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        client = IrodoriTtsClient(config, http_client)
+        settings = AppSettings(
+            character_name="テスト",
+            character_prompt="短く返す",
+            read_aloud_prompt="clear",
+            speaker_id="rinon",
+            speech_speed=1.15,
+        )
+
+        output = await client.synthesize("こんにちは。", settings)
+
+    assert output.read_bytes() == b"RIFF"
+    assert captured_json["voice"] == {"id": "rinon"}
+    assert captured_json["speed"] == 1.15
+
+
+@pytest.mark.asyncio
+async def test_speakers_parses_irodori_voice_list(tmp_path: Path) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "object": "list",
+                "data": [
+                    {"id": "none", "object": "voice", "no_ref": True},
+                    {"id": "rinon", "object": "voice", "ref_wav": "/voices/rinon.wav"},
+                ],
+            },
+        )
+
+    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        speakers = await IrodoriTtsClient(config, http_client).speakers()
+
+    assert [speaker.id for speaker in speakers] == ["none", "rinon"]
 
 
 @pytest.mark.asyncio
@@ -90,3 +141,36 @@ async def test_busy_rejection(tmp_path: Path) -> None:
     with pytest.raises(ConversationBusyError):
         await service.text_turn("two")
     await first
+
+
+@pytest.mark.asyncio
+async def test_busy_lock_is_released_after_turn_failure(tmp_path: Path) -> None:
+    class FailingOllama:
+        calls = 0
+
+        async def chat(self, settings, history, user_text):  # noqa: ANN001
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("llm failed")
+            return "復旧後の返答です。"
+
+    class FastTts:
+        async def synthesize(self, text, settings):  # noqa: ANN001
+            path = tmp_path / "audio" / "out.wav"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"RIFF")
+            return path
+
+    service = ConversationService(
+        SettingsStore(tmp_path),
+        ConversationHistory(),
+        FailingOllama(),  # type: ignore[arg-type]
+        FastTts(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RuntimeError, match="llm failed"):
+        await service.text_turn("first")
+
+    turn = await service.text_turn("second")
+
+    assert turn.assistant_text == "復旧後の返答です。"

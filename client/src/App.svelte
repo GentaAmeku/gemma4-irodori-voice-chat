@@ -46,6 +46,14 @@
   let freshId = $state<string | null>(null);
   let autoplayId = $state<string | null>(null);
   let prefs = $state(loadPrefs());
+  let savingSettings = $state(false);
+  let connecting = $state(false);
+  let clearingHistory = $state(false);
+  let uploadingImage = $state(false);
+  let conversationStage = $state<"thinking" | "synthesizing" | null>(null);
+  let conversationStageTimer: number | null = null;
+  let activeTurnAbortController: AbortController | null = null;
+  let activeTurnId: string | null = null;
 
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
@@ -67,6 +75,9 @@
       ? "MacBookローカル構成では、このMac上の会話サーバーに接続します。"
       : "MacBookからはdesktop PC上の会話サーバーを指定します。例: http://<desktop-pc-lan-ip>:8000",
   );
+  const pendingLabel = $derived(
+    conversationStage === "synthesizing" ? `${characterName}が読み上げ準備中…` : `${characterName}が返答生成中…`,
+  );
 
   onMount(() => {
     void connect();
@@ -87,6 +98,10 @@
   });
 
   async function connect() {
+    if (connecting) {
+      return;
+    }
+    connecting = true;
     displayState = "connecting";
     errorMessage = "";
     statusMessage = "";
@@ -116,6 +131,8 @@
     } catch (error) {
       displayState = "error";
       errorMessage = formatError(error);
+    } finally {
+      connecting = false;
     }
   }
 
@@ -125,8 +142,10 @@
       return;
     }
     displayState = "conversing";
+    conversationStage = "thinking";
+    startConversationStageTimer();
     errorMessage = "";
-    statusMessage = `${characterName}が返答中`;
+    statusMessage = `${characterName}が返答生成中`;
     textInput = "";
     resetComposerHeight();
     const pendingId = createTurnId();
@@ -139,27 +158,58 @@
     };
     turns = [...turns, pendingTurn];
     freshId = pendingId;
+    activeTurnId = pendingId;
+    activeTurnAbortController = new AbortController();
     try {
-      const turn = await api.textTurn(baseUrl, text);
+      const turn = await api.textTurn(baseUrl, text, activeTurnAbortController.signal);
+      if (activeTurnId !== pendingId) {
+        return;
+      }
       turns = turns.map((existing) => (existing.id === pendingId ? toDisplayTurn(turn, pendingId) : existing));
       autoplayId = prefs.autoplay ? pendingId : null;
       displayState = "ready";
+      clearConversationStage();
       statusMessage = "";
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
       const nextErrorMessage = formatError(error);
       turns = turns.map((existing) =>
         existing.id === pendingId ? { ...existing, state: "error", errorMessage: nextErrorMessage } : existing,
       );
       displayState = "ready";
+      clearConversationStage();
       errorMessage = nextErrorMessage;
       statusMessage = "返答に失敗しました";
+    } finally {
+      if (activeTurnId === pendingId) {
+        activeTurnId = null;
+        activeTurnAbortController = null;
+      }
     }
   }
 
-  async function saveSettings() {
-    if (!settingsDraft) {
+  function cancelTextTurn() {
+    if (displayState !== "conversing" || !activeTurnId) {
       return;
     }
+    const cancelledId = activeTurnId;
+    activeTurnAbortController?.abort();
+    activeTurnAbortController = null;
+    activeTurnId = null;
+    turns = turns.filter((turn) => turn.id !== cancelledId);
+    displayState = "ready";
+    clearConversationStage();
+    errorMessage = "";
+    statusMessage = "キャンセルしました";
+  }
+
+  async function saveSettings() {
+    if (!settingsDraft || savingSettings) {
+      return;
+    }
+    savingSettings = true;
     try {
       const saved = await api.saveSettings(baseUrl, settingsDraft);
       settings = saved;
@@ -169,10 +219,16 @@
       statusMessage = "設定を保存しました";
     } catch (error) {
       errorMessage = formatError(error);
+    } finally {
+      savingSettings = false;
     }
   }
 
   async function clearHistory() {
+    if (clearingHistory) {
+      return;
+    }
+    clearingHistory = true;
     try {
       await api.clearHistory(baseUrl);
       turns = [];
@@ -180,10 +236,16 @@
       statusMessage = "履歴をクリアしました";
     } catch (error) {
       errorMessage = formatError(error);
+    } finally {
+      clearingHistory = false;
     }
   }
 
   async function uploadImage(file: File) {
+    if (uploadingImage) {
+      return;
+    }
+    uploadingImage = true;
     try {
       await api.uploadCharacterImage(baseUrl, file);
       imageMissing = false;
@@ -191,6 +253,8 @@
       statusMessage = "キャラクター画像を更新しました";
     } catch (error) {
       errorMessage = formatError(error);
+    } finally {
+      uploadingImage = false;
     }
   }
 
@@ -221,10 +285,35 @@
     statusMessage = "自動再生できませんでした。メッセージの再生ボタンから再生してください。";
   }
 
+  function startConversationStageTimer() {
+    clearConversationStageTimer();
+    conversationStageTimer = window.setTimeout(() => {
+      if (displayState === "conversing") {
+        conversationStage = "synthesizing";
+        statusMessage = `${characterName}が読み上げ準備中`;
+      }
+    }, 12_000);
+  }
+
+  function clearConversationStageTimer() {
+    if (conversationStageTimer !== null) {
+      window.clearTimeout(conversationStageTimer);
+      conversationStageTimer = null;
+    }
+  }
+
+  function clearConversationStage() {
+    clearConversationStageTimer();
+    conversationStage = null;
+  }
+
   function formatError(error: unknown): string {
     if (error instanceof ApiError) {
       if (error.status === 409) {
         return "会話中です。少し待ってから再入力してください。";
+      }
+      if (error.status === 504 || /timeout|timed out|読み上げ|tts/i.test(error.message)) {
+        return `TTS生成または応答生成がタイムアウトしました。MacBookローカルの初回生成では時間がかかることがあります。詳細: ${error.message}`;
       }
       return `${error.status}: ${error.message}`;
     }
@@ -237,13 +326,20 @@
     return "不明なエラーが発生しました";
   }
 
+  function isAbortError(error: unknown): boolean {
+    return error instanceof Error && error.name === "AbortError";
+  }
+
   function dependencyMessage(nextHealth: HealthResponse): string {
     const errors = [];
+    if (!nextHealth.server_ok) {
+      errors.push("会話サーバーが利用可能状態ではありません");
+    }
     if (!nextHealth.ollama.ok) {
-      errors.push(`Ollama: ${nextHealth.ollama.detail ?? "利用できません"}`);
+      errors.push(`Ollamaに接続できません: ${nextHealth.ollama.detail ?? "利用できません"}`);
     }
     if (!nextHealth.tts.ok) {
-      errors.push(`irodori-TTS: ${nextHealth.tts.detail ?? "利用できません"}`);
+      errors.push(`irodori-TTSに接続できません: ${nextHealth.tts.detail ?? "利用できません"}`);
     }
     return errors.join(" / ") || "会話サーバーは応答しましたが、利用可能状態ではありません";
   }
@@ -326,7 +422,7 @@
           <div class="msg assistant" class:pending={turn.state === "pending"} aria-busy={turn.state === "pending"}>
             <div class="who">{characterName}</div>
             {#if turn.state === "pending"}
-              <TypingIndicator charName={characterName} />
+              <TypingIndicator charName={characterName} label={pendingLabel} />
             {:else}
               <div class="group">
                 <div class="bubble" class:fresh={turn.id === freshId} class:error={turn.state === "error"}>
@@ -367,9 +463,15 @@
           onkeydown={onComposerKeydown}
           oninput={autoGrow}
         ></textarea>
-        <button type="submit" class="send" disabled={!canConverse} aria-label="送信">
-          <Icon name="send" />
-        </button>
+        {#if displayState === "conversing"}
+          <button type="button" class="send cancel" aria-label="キャンセル" onclick={cancelTextTurn}>
+            <Icon name="stop" />
+          </button>
+        {:else}
+          <button type="submit" class="send" disabled={!canConverse} aria-label="送信">
+            <Icon name="send" />
+          </button>
+        {/if}
       </form>
       <div class="hint">
         <kbd>Enter</kbd> で送信 · <kbd>Shift</kbd>+<kbd>Enter</kbd> で改行
@@ -389,6 +491,10 @@
   {speakers}
   {statusItems}
   {connectionHelp}
+  {savingSettings}
+  {connecting}
+  {clearingHistory}
+  {uploadingImage}
   onSave={saveSettings}
   onConnect={connect}
   onClearHistory={clearHistory}
