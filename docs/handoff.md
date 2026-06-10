@@ -68,7 +68,8 @@ MacBook client
 - Ollama adapter
 - irodori-TTS adapter
 - 話す速さ `speech_speed` の設定保存とIrodori speech `speed` への橋渡し
-- 会話サーバー経由の参照音声アップロードとIrodori話者登録
+- 口調プリセット `tone_preset` と距離感 `distance` の設定保存、Ollama system promptへの合成
+- 会話サーバー経由の参照音声アップロードとIrodori話者登録（MVP UIでは未使用）
 - busy制御
 - 設定保存時の履歴クリア
 - キャラクター画像アップロード
@@ -89,7 +90,8 @@ MacBook client
 - 最後の読み上げプレイヤー
 - 自動再生失敗時の手動再生導線
 - 設定パネル
-- 話者選択と話す速さの保存
+- 口調プリセット、距離感、話す速さの保存
+- 話者選択はMVP UIから削除。読み上げは `speaker_id: "none"` とIrodori-TTS-Server側no-refカスタマイズを使う
 - 設定パネルのフォーム説明 `aria-describedby` 紐付け
 - 設定保存 / 接続確認 / 画像アップロード / 履歴クリア中の二重送信防止
 - 会話サーバー未接続 / Ollama不可 / irodori-TTS不可 / TTS timeout / 自動再生失敗の原因別エラー表示
@@ -132,6 +134,7 @@ Linux AMD:
 
 - [Verification Guide](./verification.md)
 - [Reference Voice Setup](./reference-voice-setup.md)
+- [Irodori No-Reference Voice Setup](./no-ref-voice-setup.md)
 - [MacBook Local Setup](./macbook-local-setup.md)
 - [UI Implementation Plan](./ui-implementation-plan.md)
 - [WSL AMD Setup](./wsl-amd-setup.md)
@@ -254,12 +257,20 @@ MacBookローカル実サービス確認:
 - `pnpm -C client build`: success
 - `pnpm -C client test:e2e`: 6 passed
 - `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 10 passed
+- Phase 3の口調プリセット / 距離感の実処理化: `tone_preset` / `distance` をサーバー設定へ昇格し、Ollama送信前に `character_prompt` へ合成
+- 話者選択をMVP UIから削除。MVPは `speaker_id: "none"` とIrodori-TTS-Server側のno-refカスタマイズで進める
+- `UV_CACHE_DIR=/private/tmp/uv-cache-gemma4-irodori uv run pytest` in `server/`: 11 passed
+- `pnpm -C client format`: success
+- `pnpm -C client check`: 0 errors
+- `pnpm -C client build`: success
+- `pnpm -C client test:e2e`: 6 passed
+- Browser DOM確認: 設定パネルから話者テキスト / 話者selectが消え、口調プリセット / 距離感 / 話す速さが表示されることを確認
 
 ## 次にやる候補
 
 推奨順:
 
-1. 参照音声ファイルを用意し、`scripts/register-conversation-voice.sh` でdesktop PCの会話サーバーへアップロードして `/api/speakers` で `none` 以外が出ることを実機確認する
+1. Irodori-TTS-Server側のno-ref音声カスタマイズ後、`speaker_id: "none"` のまま期待する声質で読み上がることを実機確認する
 2. 失敗時ログとUIメッセージの改善
 3. 音声入力フェーズ
    - WebSocket設計
@@ -278,7 +289,8 @@ MacBookローカル実サービス確認:
 - テキスト会話は同期REST。ユーザー発話はクライアント側で即時表示し、サーバー応答で置換する。
 - テキスト会話のキャンセルはクライアント側のrequest中断と画面上の破棄。サーバー側処理は完了まで続き、その間はbusyになる場合がある。
 - 読み上げON/OFFは設計には残すがMVPでは不要。
-- 現状の実機 `/api/speakers` は `none` のみ。声質をキャラクターに寄せるにはIrodori-TTS-Serverへ参照音声を登録する必要がある。手順は [Reference Voice Setup](./reference-voice-setup.md)。
+- 現状の実機 `/api/speakers` は `none` のみ。MVPではこれを正常扱いにし、声質はIrodori-TTS-Server側のno-ref設定で調整する。
+- 参照音声登録APIとスクリプトは残すが、MVP外の将来用。手順は [Reference Voice Setup](./reference-voice-setup.md)。
 - `read_aloud_prompt` は将来用のメタデータで、現行Irodori-TTS-Serverのspeech endpointには直接渡していない。
 - `speech_speed` はIrodori-TTS-Serverのspeech endpointへ `speed` として渡す。
 - Windows AMD環境セットアップやLAN公開の切り分けは `gemma4-windows-amd-setup` skill を使う。

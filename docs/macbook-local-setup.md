@@ -129,7 +129,8 @@ MacBookローカル用クライアントでは、接続先の既定値は `http:
 
 ## 7. 参照音声
 
-MacBookローカル構成でキャラクターの参照音声を使う場合は、MacBook上のIrodori-TTS-Serverへ登録します。
+MVPでは、参照音声登録ではなくIrodori-TTS-Server側のno-ref音声設定を使います。
+MacBookローカル構成で将来キャラクターの参照音声を使う場合は、MacBook上のIrodori-TTS-Serverへ登録します。
 
 ```sh
 TTS_BASE_URL=http://127.0.0.1:8088 \

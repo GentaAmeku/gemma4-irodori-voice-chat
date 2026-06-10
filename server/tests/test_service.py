@@ -72,6 +72,41 @@ async def test_tts_request_includes_selected_speaker_and_speed(tmp_path: Path) -
 
 
 @pytest.mark.asyncio
+async def test_ollama_request_includes_tone_and_distance_prompt(tmp_path: Path) -> None:
+    captured_json: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_json
+        captured_json = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, json={"message": {"content": "返答です。"}})
+
+    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        response = await OllamaClient(config, http_client).chat(
+            AppSettings(
+                character_name="テスト",
+                character_prompt="短く返す。",
+                read_aloud_prompt="clear",
+                speaker_id="none",
+                tone_preset="friendly",
+                distance=80,
+            ),
+            [],
+            "こんにちは",
+        )
+
+    assert response == "返答です。"
+    messages = captured_json["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    assert "短く返す。" in system_prompt
+    assert "追加の口調設定" in system_prompt
+    assert "フレンドリー" in system_prompt
+    assert "親しい寄り" in system_prompt
+
+
+@pytest.mark.asyncio
 async def test_speakers_parses_irodori_voice_list(tmp_path: Path) -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(

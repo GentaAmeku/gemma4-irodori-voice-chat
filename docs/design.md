@@ -53,11 +53,11 @@
 - Future emotion control should be represented separately from the response text, not embedded in natural-language output.
 - The client UI does not edit Ollama connection settings or model names in the MVP.
 - The client UI may display the currently configured LLM model reported by the conversation server.
-- In the MVP, speaker selection and speech speed are the effective read-aloud controls exposed to the user.
+- In the MVP, speech speed is the effective read-aloud control exposed to the user.
+- In the MVP, speaker selection is not exposed in the client UI. The app sends `speaker_id: "none"` and relies on the Irodori-TTS-Server no-reference voice configuration.
 - Natural-language read-aloud guidance may be stored as future-facing character metadata, but Irodori-TTS-Server's current OpenAI-compatible speech endpoint does not directly consume it as a prompt.
 - Detailed TTS parameters such as style, steps, and auto-style are fixed or server-side only in the MVP.
-- The conversation server retrieves available speaker options from irodori-TTS and exposes them to client apps.
-- For stable voice tone, the MVP expects reference voices to be registered in Irodori-TTS-Server. If only `none` is available, voice tone may not match the intended character.
+- Reference voice registration and speaker selection remain future-facing support. They are not required for the MVP if Irodori's no-reference voice is customized server-side.
 - PC and smartphone clients share the same information architecture.
 - The UI layout is responsive: desktop may place character/settings beside conversation, while mobile stacks character, conversation, and input with settings behind a secondary view or collapsible panel.
 - Settings are edited in a settings panel, not as a separate full application screen in the MVP.
@@ -70,7 +70,7 @@
 - The PC Tauri app is added after the web client and conversation server work end to end.
 - The first vertical slice uses text input, then runs LLM response generation, read-aloud audio generation, visible response display, and audio playback.
 - Voice input, VAD, STT, and audio chunk streaming are added after the text-to-voice vertical slice works.
-- The MVP uses REST for health, settings, character image, speaker options, and text conversation turns.
+- The MVP uses REST for health, settings, character image, and text conversation turns.
 - The MVP uses WebSocket for voice conversation turns, audio chunks, progress events, and cancellation.
 - Voice WebSocket connections are opened per voice session in the MVP.
 - The MVP does not keep an idle voice WebSocket connection open between voice sessions.

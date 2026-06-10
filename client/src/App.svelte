@@ -1,13 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    api,
-    ApiError,
-    type AppSettings,
-    type ConversationTurn,
-    type HealthResponse,
-    type SpeakerOption,
-  } from "./api";
+  import { api, ApiError, type AppSettings, type ConversationTurn, type HealthResponse } from "./api";
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
   import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
   import { loadPrefs, savePrefs } from "./lib/prefs";
@@ -36,7 +29,6 @@
   let health = $state<HealthResponse | null>(null);
   let settings = $state<AppSettings | null>(null);
   let settingsDraft = $state<AppSettings | null>(null);
-  let speakers = $state<SpeakerOption[]>([]);
   let turns = $state<DisplayTurn[]>([]);
   let textInput = $state("");
   let errorMessage = $state("");
@@ -106,16 +98,14 @@
     statusMessage = "";
     baseUrl = draftBaseUrl.trim().replace(/\/+$/, "") || defaultBaseUrl;
     try {
-      const [nextHealth, nextSettings, nextSpeakers, history] = await Promise.all([
+      const [nextHealth, nextSettings, history] = await Promise.all([
         api.health(baseUrl),
         api.settings(baseUrl),
-        api.speakers(baseUrl),
         api.history(baseUrl),
       ]);
       health = nextHealth;
       settings = nextSettings;
       settingsDraft = { ...nextSettings };
-      speakers = nextSpeakers;
       turns = history.turns.map((turn, index) => toDisplayTurn(turn, `history-${index}`));
       imageMissing = false;
       imageVersion = Date.now();
@@ -504,7 +494,6 @@
   bind:draft={settingsDraft}
   bind:draftBaseUrl
   bind:prefs
-  {speakers}
   {statusItems}
   {connectionHelp}
   {savingSettings}

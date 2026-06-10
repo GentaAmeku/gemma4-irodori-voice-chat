@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AppSettings, SpeakerOption } from "../api";
+  import type { AppSettings } from "../api";
   import type { StatusItem } from "./status";
   import { TONE_PRESETS, type LocalPrefs } from "./prefs";
   import Icon from "./Icon.svelte";
@@ -10,7 +10,6 @@
     draft = $bindable(null),
     draftBaseUrl = $bindable(""),
     prefs = $bindable(),
-    speakers,
     statusItems,
     connectionHelp,
     savingSettings = false,
@@ -26,7 +25,6 @@
     draft?: AppSettings | null;
     draftBaseUrl?: string;
     prefs: LocalPrefs;
-    speakers: SpeakerOption[];
     statusItems: StatusItem[];
     connectionHelp: string;
     savingSettings?: boolean;
@@ -42,8 +40,10 @@
   let dialogEl: HTMLDialogElement | undefined = $state();
   let dragOver = $state(false);
 
-  const preset = $derived(TONE_PRESETS.find((t) => t.id === prefs.tone) ?? TONE_PRESETS[0]);
-  const distanceLabel = $derived(prefs.distance <= 33 ? "ていねい" : prefs.distance >= 67 ? "親しい" : "ほどよい");
+  const preset = $derived(TONE_PRESETS.find((t) => t.id === draft?.tone_preset) ?? TONE_PRESETS[0]);
+  const distanceLabel = $derived(
+    (draft?.distance ?? 40) <= 33 ? "ていねい" : (draft?.distance ?? 40) >= 67 ? "親しい" : "ほどよい",
+  );
   const panelBusyMessage = $derived.by(() => {
     if (savingSettings) return "設定を保存中です。";
     if (connecting) return "接続を確認中です。";
@@ -194,9 +194,9 @@
                 <button
                   type="button"
                   class="chip"
-                  class:on={prefs.tone === tone.id}
-                  aria-pressed={prefs.tone === tone.id}
-                  onclick={() => (prefs.tone = tone.id)}
+                  class:on={draft.tone_preset === tone.id}
+                  aria-pressed={draft.tone_preset === tone.id}
+                  onclick={() => (draft.tone_preset = tone.id)}
                 >
                   {tone.label}
                 </button>
@@ -215,13 +215,11 @@
               type="range"
               min="0"
               max="100"
-              bind:value={prefs.distance}
+              bind:value={draft.distance}
               aria-describedby="distance-help"
             />
             <div class="ends"><span>敬語</span><span>タメ口</span></div>
-            <div id="distance-help" class="help">
-              口調プリセットと距離感は将来機能のプレビューです。まだ会話には反映されません。
-            </div>
+            <div id="distance-help" class="help">保存すると次の会話ターンからsystem promptに反映されます。</div>
           </div>
 
           <div class="field-row">
@@ -249,15 +247,6 @@
         <!-- 声・読み上げ -->
         <section class="sect">
           <h3 class="h">声 ・ 読み上げ</h3>
-          <div class="field-row">
-            <label for="speaker">話者</label>
-            <select id="speaker" name="speaker_id" class="select" bind:value={draft.speaker_id}>
-              {#each speakers as speaker (speaker.id)}
-                <option value={speaker.id}>{speaker.label}</option>
-              {/each}
-            </select>
-          </div>
-
           <div class="field-row">
             <label for="voice-prompt">読み上げ設定</label>
             <textarea

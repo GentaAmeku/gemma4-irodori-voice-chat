@@ -154,6 +154,9 @@ test("saves settings and clears conversation history", async ({ page }) => {
 
   await page.getByRole("button", { name: "設定", exact: true }).click();
   await page.getByLabel("キャラクター名").fill("リノン");
+  await page.getByRole("button", { name: "フレンドリー" }).click();
+  await page.getByLabel("距離感").fill("75");
+  await expect(page.getByText("親しい")).toBeVisible();
   await page.getByLabel("話す速さ").fill("1.15");
   await expect(page.getByText("1.15×")).toBeVisible();
   await page.getByRole("button", { name: "保存する" }).click();
@@ -162,7 +165,13 @@ test("saves settings and clears conversation history", async ({ page }) => {
   await expect(page.getByText("まだ会話はありません。")).toBeVisible();
   const settingsResponse = await page.request.get("http://127.0.0.1:8000/api/settings");
   await expect(settingsResponse).toBeOK();
-  expect((await settingsResponse.json()) as { speech_speed: number }).toMatchObject({ speech_speed: 1.15 });
+  expect(
+    (await settingsResponse.json()) as { speech_speed: number; tone_preset: string; distance: number },
+  ).toMatchObject({
+    speech_speed: 1.15,
+    tone_preset: "friendly",
+    distance: 75,
+  });
 
   await page.getByRole("button", { name: "設定を閉じる" }).click();
   await page.getByLabel("テキスト入力").fill("もう一度話します");

@@ -8,7 +8,7 @@ import wave
 import httpx
 
 from .config import AppConfig
-from .models import AppSettings, ConversationTurn, DependencyStatus, SpeakerOption
+from .models import AppSettings, ConversationTurn, DependencyStatus, SpeakerOption, build_character_system_prompt
 
 
 class OllamaClient:
@@ -35,7 +35,7 @@ class OllamaClient:
         if self.config.mock_services:
             return f"{settings.character_name}です。『{user_text}』について、まずは短く返すね。"
 
-        messages = [{"role": "system", "content": settings.character_prompt}]
+        messages = [{"role": "system", "content": build_character_system_prompt(settings)}]
         for turn in history:
             messages.append({"role": "user", "content": turn.user_text})
             messages.append({"role": "assistant", "content": turn.assistant_text})

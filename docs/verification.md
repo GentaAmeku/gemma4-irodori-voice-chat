@@ -142,20 +142,15 @@ Optionsを開きます。
 - キャラクター名を編集できる
 - キャラクター設定を編集できる
 - 読み上げ設定を編集できる
-- 話者を選択できる
+- 口調プリセットと距離感を保存できる
 - 保存すると履歴がクリアされる
 - 履歴クリアボタンで履歴がクリアされる
 - キャラクター画像をアップロードできる
-- 参照音声を登録済みの場合、話者リストに `none` 以外の話者IDが表示される
+- 話者選択はMVP UIに表示しない
 - 話す速さを変更して保存できる
 
-参照音声の登録手順は [Reference Voice Setup](./reference-voice-setup.md) を参照してください。
-MacBookからdesktop PC / WSL構成へ登録する場合は、会話サーバー経由の登録を使います。
-
-```bash
-SERVER_BASE_URL=http://<desktop-pc-lan-ip>:8000 \
-  ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav
-```
+参照音声登録はMVP外です。MVPではIrodori-TTS-Server側のno-ref音声設定をカスタマイズし、アプリは `speaker_id: "none"` のまま読み上げます。確認手順は [Irodori No-Reference Voice Setup](./no-ref-voice-setup.md) を参照してください。
+将来、参照音声を使う場合の登録手順は [Reference Voice Setup](./reference-voice-setup.md) を参照してください。
 
 ## 6. 失敗時の切り分け
 

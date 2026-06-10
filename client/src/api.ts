@@ -20,7 +20,11 @@ export type AppSettings = {
   read_aloud_prompt: string;
   speaker_id: string;
   speech_speed: number;
+  tone_preset: TonePresetId;
+  distance: number;
 };
+
+export type TonePresetId = "polite" | "friendly" | "calm" | "playful";
 
 export type SpeakerOption = {
   id: string;
@@ -71,11 +75,19 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
   return (await response.json()) as T;
 }
 
-function normalizeSettings(settings: AppSettings | Omit<AppSettings, "speech_speed">): AppSettings {
+function normalizeSettings(
+  settings: AppSettings | Partial<Pick<AppSettings, "speech_speed" | "tone_preset" | "distance">>,
+): AppSettings {
   return {
-    ...settings,
+    ...(settings as AppSettings),
     speech_speed: "speech_speed" in settings && typeof settings.speech_speed === "number" ? settings.speech_speed : 1.0,
+    tone_preset: "tone_preset" in settings && isTonePresetId(settings.tone_preset) ? settings.tone_preset : "calm",
+    distance: "distance" in settings && typeof settings.distance === "number" ? settings.distance : 40,
   };
+}
+
+function isTonePresetId(value: unknown): value is TonePresetId {
+  return value === "polite" || value === "friendly" || value === "calm" || value === "playful";
 }
 
 export const api = {
