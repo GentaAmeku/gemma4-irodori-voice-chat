@@ -4,6 +4,7 @@
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
   import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
   import { loadPrefs, savePrefs, TONE_PRESETS } from "./lib/prefs";
+  import { createSpeechRecognition, isSpeechRecognitionSupported, speechErrorMessage } from "./lib/speech";
   import AudioChip from "./lib/AudioChip.svelte";
   import CharacterRail from "./lib/CharacterRail.svelte";
   import Icon from "./lib/Icon.svelte";
@@ -45,10 +46,17 @@
   let uploadingImage = $state(false);
   let activeConversation = $state<ActiveConversation | null>(null);
 
+  // 音声入力(SpeechRecognition)。未対応ブラウザではマイクを無効化する。
+  const speechSupported = isSpeechRecognitionSupported();
+  let recording = $state(false);
+  let recognition: SpeechRecognition | null = null;
+  let speechBaseText = ""; // 録音開始時点で入力欄にあったテキスト
+
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
 
-  const previewSettings = $derived(settingsOpen && settingsDraft ? settingsDraft : settings);
+  // パネル表示中と保存中はドラフトを表示し、保存成功でそのままサーバー値へ引き継ぐ
+  const previewSettings = $derived((settingsOpen || savingSettings) && settingsDraft ? settingsDraft : settings);
   const characterName = $derived(previewSettings?.character_name ?? "リノン");
   const characterPromptPreview = $derived(previewSettings ? buildCharacterPromptPreview(previewSettings) : "");
   const canConverse = $derived(displayState === "ready" && textInput.trim().length > 0);
@@ -70,6 +78,16 @@
   const conversationStage = $derived(activeConversation?.stage ?? null);
   const pendingLabel = $derived(
     conversationStage === "synthesizing" ? `${characterName}が読み上げ準備中…` : `${characterName}が返答生成中…`,
+  );
+  const micLabel = $derived(
+    !speechSupported ? "音声入力（このブラウザは非対応）" : recording ? "音声入力を停止" : "音声入力を開始",
+  );
+  const composerPlaceholder = $derived(
+    displayState === "conversing"
+      ? `${characterName}が返答を準備中です…`
+      : recording
+        ? "聞き取り中… 話し終えたらマイクをもう一度押してください"
+        : "話しかけてください…",
   );
 
   onMount(() => {
@@ -128,6 +146,9 @@
   }
 
   async function sendTextTurn() {
+    if (recording) {
+      stopSpeech();
+    }
     const text = textInput.trim();
     if (!text || displayState !== "ready") {
       return;
@@ -198,6 +219,19 @@
     statusMessage = "キャンセルしました";
   }
 
+  // パネルを閉じたとき、変更があれば設定保存する。変更がなければ何もしない
+  // (設定保存は会話履歴のクリアを伴うため)。
+  function applySettingsOnClose() {
+    if (!settings || !settingsDraft || savingSettings) {
+      return;
+    }
+    settingsDraft = normalizeSettingsDraft(settingsDraft, settings);
+    if (isSameSettings(settingsDraft, settings)) {
+      return;
+    }
+    void saveSettings();
+  }
+
   async function saveSettings() {
     if (!settingsDraft || savingSettings) {
       return;
@@ -206,12 +240,17 @@
     try {
       const saved = await api.saveSettings(baseUrl, settingsDraft);
       settings = saved;
-      settingsDraft = { ...saved };
+      // パネルが再度開かれていなければドラフトを保存値へそろえる
+      if (!settingsOpen) {
+        settingsDraft = { ...saved };
+      }
       turns = [];
       errorMessage = "";
       statusMessage = "設定を保存しました";
     } catch (error) {
-      errorMessage = formatError(error);
+      // ドラフトは保持する。パネルを開き直して閉じれば再保存できる
+      errorMessage = `設定を保存できませんでした: ${formatError(error)}`;
+      statusMessage = "設定を保存できませんでした";
     } finally {
       savingSettings = false;
     }
@@ -276,6 +315,88 @@
 
   function onAutoplayFail() {
     statusMessage = "自動再生できませんでした。メッセージの再生ボタンから再生してください。";
+  }
+
+  function toggleSpeech() {
+    if (!speechSupported || displayState !== "ready") {
+      return;
+    }
+    if (recording) {
+      stopSpeech();
+    } else {
+      startSpeech();
+    }
+  }
+
+  function startSpeech() {
+    const next = createSpeechRecognition("ja-JP");
+    if (!next) {
+      return;
+    }
+    recognition = next;
+    speechBaseText = textInput;
+    let finalText = "";
+    errorMessage = "";
+    next.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) {
+          finalText += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      // 録音中は確定テキスト + 未確定テキストをライブ表示する
+      textInput = joinSpeechText(speechBaseText, finalText + interim);
+    };
+    next.onerror = (event) => {
+      const message = speechErrorMessage(event.error);
+      if (message) {
+        statusMessage = message;
+      }
+      stopSpeech();
+    };
+    next.onend = () => {
+      recording = false;
+      recognition = null;
+      statusMessage = "";
+      textareaEl?.focus();
+    };
+    try {
+      next.start();
+      recording = true;
+      statusMessage = "音声を聞き取り中…";
+    } catch {
+      // start の二重呼び出しなどは無視して状態を戻す
+      recording = false;
+      recognition = null;
+    }
+  }
+
+  function stopSpeech() {
+    const current = recognition;
+    recognition = null;
+    recording = false;
+    if (current) {
+      // onend での再代入(未確定テキストの破棄)を避けるためハンドラを外してから止める
+      current.onresult = null;
+      current.onerror = null;
+      current.onend = null;
+      current.stop();
+    }
+  }
+
+  // 既存テキストに認識結果を続ける。語の境界に空白がなければ半角スペースを挟む。
+  function joinSpeechText(base: string, addition: string): string {
+    if (!base) {
+      return addition;
+    }
+    if (!addition) {
+      return base;
+    }
+    return /\s$/.test(base) ? `${base}${addition}` : `${base} ${addition}`;
   }
 
   function startConversationStageTimer(turnId: string) {
@@ -373,6 +494,28 @@
     }
   }
 
+  // 必須項目が空のまま閉じられた場合は保存済みの値へ戻し、不正な設定を保存しない
+  function normalizeSettingsDraft(draft: AppSettings, fallback: AppSettings): AppSettings {
+    return {
+      ...draft,
+      character_name: draft.character_name.trim() || fallback.character_name,
+      character_prompt: draft.character_prompt.trim() || fallback.character_prompt,
+      read_aloud_prompt: draft.read_aloud_prompt.trim() || fallback.read_aloud_prompt,
+    };
+  }
+
+  function isSameSettings(a: AppSettings, b: AppSettings): boolean {
+    return (
+      a.character_name === b.character_name &&
+      a.character_prompt === b.character_prompt &&
+      a.read_aloud_prompt === b.read_aloud_prompt &&
+      a.speaker_id === b.speaker_id &&
+      a.speech_speed === b.speech_speed &&
+      a.tone_preset === b.tone_preset &&
+      a.distance === b.distance
+    );
+  }
+
   function buildCharacterPromptPreview(nextSettings: AppSettings): string {
     const tone = TONE_PRESETS.find((item) => item.id === nextSettings.tone_preset)?.label ?? "落ち着き";
     const distance = nextSettings.distance <= 33 ? "ていねい" : nextSettings.distance >= 67 ? "親しい" : "ほどよい";
@@ -446,6 +589,7 @@
                   <AudioChip
                     src={api.absoluteUrl(baseUrl, turn.audio_url)}
                     autoplay={turn.id === autoplayId}
+                    volume={prefs.volume}
                     onautoplayfail={onAutoplayFail}
                   />
                 {/if}
@@ -464,21 +608,37 @@
           void sendTextTurn();
         }}
       >
-        <button type="button" class="icon-btn" disabled title="音声入力（将来対応）" aria-label="音声入力（将来対応）">
+        <button
+          type="button"
+          class="icon-btn mic"
+          class:recording
+          disabled={!speechSupported || displayState !== "ready"}
+          aria-pressed={recording}
+          title={micLabel}
+          aria-label={micLabel}
+          onclick={toggleSpeech}
+        >
           <Icon name="mic" />
         </button>
         <textarea
           bind:this={textareaEl}
           bind:value={textInput}
           rows="1"
-          placeholder="話しかけてください…"
+          placeholder={composerPlaceholder}
           aria-label="テキスト入力"
           disabled={displayState === "conversing"}
+          readonly={recording}
           onkeydown={onComposerKeydown}
           oninput={autoGrow}
         ></textarea>
         {#if displayState === "conversing"}
-          <button type="button" class="send cancel" aria-label="キャンセル" onclick={cancelTextTurn}>
+          <button
+            type="button"
+            class="send generating"
+            aria-label="キャンセル"
+            title="返答生成を停止"
+            onclick={cancelTextTurn}
+          >
             <Icon name="stop" />
           </button>
         {:else}
@@ -504,11 +664,10 @@
   bind:prefs
   {statusItems}
   {connectionHelp}
-  {savingSettings}
   {connecting}
   {clearingHistory}
   {uploadingImage}
-  onSave={saveSettings}
+  onClose={applySettingsOnClose}
   onConnect={connect}
   onClearHistory={clearHistory}
   onUploadImage={uploadImage}

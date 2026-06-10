@@ -18,13 +18,23 @@ export const TONE_PRESETS: TonePreset[] = [
 
 export type LocalPrefs = {
   autoplay: boolean;
+  // 読み上げの再生音量 (0–1)。クライアント側の audio.volume に反映する。
+  volume: number;
 };
 
 export const DEFAULT_PREFS: LocalPrefs = {
   autoplay: true,
+  volume: 0.5,
 };
 
 const STORAGE_KEY = "gemma4-irodori-chat.local-prefs";
+
+function clampVolume(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_PREFS.volume;
+  }
+  return Math.min(1, Math.max(0, value));
+}
 
 export function loadPrefs(): LocalPrefs {
   try {
@@ -35,6 +45,7 @@ export function loadPrefs(): LocalPrefs {
     const parsed = JSON.parse(raw) as Partial<LocalPrefs>;
     return {
       autoplay: typeof parsed.autoplay === "boolean" ? parsed.autoplay : DEFAULT_PREFS.autoplay,
+      volume: clampVolume(parsed.volume),
     };
   } catch {
     return { ...DEFAULT_PREFS };

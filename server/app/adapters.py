@@ -124,15 +124,21 @@ class IrodoriTtsClient:
             self._write_mock_wav(output)
             return output
 
+        payload: dict[str, object] = {
+            "model": self.config.tts_model,
+            "input": text,
+            "voice": {"id": settings.speaker_id},
+            "response_format": self.config.tts_response_format,
+            "speed": settings.speech_speed,
+        }
+        # 固定シードを渡すと、no_ref読み上げが長文でチャンク分割されても、
+        # またターンをまたいでも、同じ声質で生成される。
+        if self.config.tts_seed is not None:
+            payload["irodori"] = {"seed": self.config.tts_seed}
+
         response = await self.http.post(
             f"{self.config.tts_base_url}/v1/audio/speech",
-            json={
-                "model": self.config.tts_model,
-                "input": text,
-                "voice": {"id": settings.speaker_id},
-                "response_format": self.config.tts_response_format,
-                "speed": settings.speech_speed,
-            },
+            json=payload,
         )
         response.raise_for_status()
         output.write_bytes(response.content)

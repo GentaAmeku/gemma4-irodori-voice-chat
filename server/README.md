@@ -31,6 +31,22 @@ OllamaとIrodori-TTS-Serverをまとめて起動する場合:
 
 この起動スクリプトはAMD GPU前提で、Irodori-TTS-Serverを `uv run --extra rocm` で起動します。
 
+## 読み上げの声質を固定する (`GIC_TTS_SEED`)
+
+`speaker_id: "none"`(no-ref読み上げ)では、声質が生成時のシードで決まります。
+シード未指定だとIrodori-TTS側が読み上げのたびに乱数シードを引くため、長い返答が
+チャンク分割されると同じ返答の途中で声が別人に変わったり、ターンごとに声が変わります。
+会話サーバーは既定で固定シード(`1234567`)を渡し、声質を一貫させます。
+
+```sh
+# 声質を変えたいとき(別のシードを試す)
+GIC_TTS_SEED=42 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+# 従来どおり毎回ランダムにする
+GIC_TTS_SEED=none uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+参照音声を登録して声質を固定する方法は [`docs/reference-voice-setup.md`](../docs/reference-voice-setup.md) を参照してください。
+
 ## Test
 
 ```sh

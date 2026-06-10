@@ -145,7 +145,36 @@ test("does not autoplay audio when autoplay is disabled", async ({ page }) => {
     .toBe(0);
 });
 
-test("saves settings and clears conversation history", async ({ page }) => {
+test("closing the settings panel without changes keeps history and does not save", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByLabel("テキスト入力").fill("変更なしで閉じる前の発話です");
+  await page.getByRole("button", { name: "送信" }).click();
+  await expect(page.getByText("変更なしで閉じる前の発話です", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
+  await expect(page.getByRole("dialog", { name: "設定" })).toBeHidden();
+
+  await expect(page.getByText("設定を保存しました")).toBeHidden();
+  await expect(page.getByText("変更なしで閉じる前の発話です", { exact: true })).toBeVisible();
+});
+
+test("saves settings when the panel closes and clears conversation history", async ({ page }) => {
+  // 前回実行の保存値が残っていると差分なし(=保存されない)になるため、既知の状態へ戻す
+  const reset = await page.request.put("http://127.0.0.1:8000/api/settings", {
+    data: {
+      character_name: "リノン",
+      character_prompt: "あなたはリノン。短くやさしく返す。",
+      read_aloud_prompt: "Native Japanese young adult woman, warm conversational voice.",
+      speaker_id: "none",
+      speech_speed: 1.0,
+      tone_preset: "calm",
+      distance: 40,
+    },
+  });
+  expect(reset.ok()).toBeTruthy();
+
   await page.goto("/");
 
   await page.getByLabel("テキスト入力").fill("履歴クリア前の発話です");
@@ -158,14 +187,17 @@ test("saves settings and clears conversation history", async ({ page }) => {
   await expect(page.locator(".persona-line")).toContainText("リノンは若い女性の会話相手として、やわらかく短く返す。");
   await page.getByRole("button", { name: "フレンドリー" }).click();
   await page.getByLabel("距離感").fill("75");
-  await expect(page.getByText("親しい", { exact: true })).toBeVisible();
+  await expect(page.locator(".slider-row").filter({ hasText: "距離感" }).locator(".v")).toHaveText("親しい");
   await expect(page.locator(".persona-line")).toContainText("口調: フレンドリー / 距離感: 親しい");
   await page.getByLabel("話す速さ").fill("1.15");
   await expect(page.getByText("1.15×")).toBeVisible();
-  await page.getByRole("button", { name: "保存する" }).click();
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
 
   await expect(page.getByText("設定を保存しました")).toBeVisible();
   await expect(page.getByText("まだ会話はありません。")).toBeVisible();
+  // 閉じたあともトップ画面(キャラクターレール)に変更後の設定が反映される
+  await expect(page.locator(".persona-line")).toContainText("リノンは若い女性の会話相手として、やわらかく短く返す。");
+  await expect(page.locator(".persona-line")).toContainText("口調: フレンドリー / 距離感: 親しい");
   const settingsResponse = await page.request.get("http://127.0.0.1:8000/api/settings");
   await expect(settingsResponse).toBeOK();
   expect(
@@ -176,7 +208,6 @@ test("saves settings and clears conversation history", async ({ page }) => {
     distance: 75,
   });
 
-  await page.getByRole("button", { name: "設定を閉じる" }).click();
   await page.getByLabel("テキスト入力").fill("もう一度話します");
   await page.getByRole("button", { name: "送信" }).click();
   await expect(page.getByText("もう一度話します", { exact: true })).toBeVisible();

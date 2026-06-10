@@ -164,7 +164,7 @@
   .app {
     block-size: 100dvh;
     display: grid;
-    grid-template-columns: 348px minmax(0, 1fr);
+    grid-template-columns: 424px minmax(0, 1fr);
     background: radial-gradient(140% 90% at 100% 0%, var(--bg) 0%, var(--bg-tint) 100%);
   }
 
@@ -200,7 +200,7 @@
 
   .portrait {
     inline-size: 100%;
-    block-size: clamp(200px, 36dvh, 340px);
+    block-size: clamp(240px, 46dvh, 432px);
     flex: 0 0 auto;
     border-radius: var(--r-lg);
     background: var(--surface-3);
@@ -272,6 +272,8 @@
     text-align: center;
     line-height: 1.7;
     white-space: pre-line;
+    /* 日本語を文節境界で折り返す(Chromium のみ。非対応ブラウザは既定の改行に戻る) */
+    word-break: auto-phrase;
     max-inline-size: 264px;
     display: -webkit-box;
     -webkit-line-clamp: 7;
@@ -446,6 +448,41 @@
   .icon-btn:disabled {
     color: var(--ink-ghost);
     cursor: default;
+  }
+
+  /* 音声入力の録音中。赤い塗り＋パルスで「録音中」をはっきり示す。 */
+  .icon-btn.mic.recording {
+    background: var(--err);
+    border-color: var(--err);
+    color: var(--surface);
+    animation: mic-pulse 1.6s var(--ease) infinite;
+  }
+
+  .icon-btn.mic.recording:hover:not(:disabled) {
+    background: var(--err);
+    color: var(--surface);
+  }
+
+  @keyframes mic-pulse {
+    0% {
+      box-shadow: 0 0 0 0 oklch(0.62 0.17 25 / 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 9px oklch(0.62 0.17 25 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 oklch(0.62 0.17 25 / 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .icon-btn.mic.recording {
+      animation: none;
+    }
+
+    .send.generating::before {
+      animation: none;
+    }
   }
 
   .icon-btn svg {
@@ -866,6 +903,7 @@
   }
 
   .send {
+    position: relative;
     inline-size: 44px;
     block-size: 44px;
     border-radius: 50%;
@@ -897,13 +935,34 @@
     cursor: default;
   }
 
-  .send.cancel {
-    background: var(--ink);
-    color: var(--surface);
+  /* 返答生成中の「停止」ボタン。録音中(マイクの赤い塗り)と区別するため、
+     塗りつぶしではなく中立色＋回転リングで「処理中・押すと停止」を表す。 */
+  .send.generating {
+    background: var(--surface);
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--sh-1);
   }
 
-  .send.cancel:hover {
-    background: var(--ink-soft);
+  .send.generating:hover {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+
+  .send.generating::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-block-start-color: var(--ink-faint);
+    animation: composer-spin 0.9s linear infinite;
+  }
+
+  @keyframes composer-spin {
+    to {
+      rotate: 1turn;
+    }
   }
 
   .send svg {

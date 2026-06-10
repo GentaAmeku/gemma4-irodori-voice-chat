@@ -4,10 +4,12 @@
   let {
     src,
     autoplay = false,
+    volume = 1,
     onautoplayfail,
   }: {
     src: string;
     autoplay?: boolean;
+    volume?: number;
     onautoplayfail?: () => void;
   } = $props();
 
@@ -17,6 +19,13 @@
   let autoplayAttempted = false;
 
   const bars = [0.4, 0.8, 0.55, 1, 0.65, 0.9, 0.45, 0.75, 0.5];
+
+  // 音量変更は再生中でも即座に反映する
+  $effect(() => {
+    if (audioEl) {
+      audioEl.volume = Math.min(1, Math.max(0, volume));
+    }
+  });
 
   $effect(() => {
     if (!autoplay || autoplayAttempted || !audioEl) {

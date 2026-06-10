@@ -12,11 +12,10 @@
     prefs = $bindable(),
     statusItems,
     connectionHelp,
-    savingSettings = false,
     connecting = false,
     clearingHistory = false,
     uploadingImage = false,
-    onSave,
+    onClose,
     onConnect,
     onClearHistory,
     onUploadImage,
@@ -27,11 +26,10 @@
     prefs: LocalPrefs;
     statusItems: StatusItem[];
     connectionHelp: string;
-    savingSettings?: boolean;
     connecting?: boolean;
     clearingHistory?: boolean;
     uploadingImage?: boolean;
-    onSave: () => void;
+    onClose: () => void;
     onConnect: () => void;
     onClearHistory: () => void;
     onUploadImage: (file: File) => void;
@@ -45,7 +43,6 @@
     (draft?.distance ?? 40) <= 33 ? "ていねい" : (draft?.distance ?? 40) >= 67 ? "親しい" : "ほどよい",
   );
   const panelBusyMessage = $derived.by(() => {
-    if (savingSettings) return "設定を保存中です。";
     if (connecting) return "接続を確認中です。";
     if (uploadingImage) return "キャラクター画像をアップロード中です。";
     if (clearingHistory) return "会話履歴をクリア中です。";
@@ -113,7 +110,10 @@
   closedby="any"
   bind:this={dialogEl}
   aria-label="設定"
-  onclose={() => (open = false)}
+  onclose={() => {
+    open = false;
+    onClose();
+  }}
   onclick={onDialogClick}
 >
   <div class="panel-head">
@@ -131,184 +131,192 @@
     </div>
 
     {#if draft}
-      <form
-        onsubmit={(event) => {
-          event.preventDefault();
-          onSave();
-        }}
-      >
-        <!-- キャラクター -->
-        <section class="sect">
-          <h3 class="h">キャラクター</h3>
-          <div class="field-row">
-            <label for="character-name">キャラクター名</label>
+      <div class="help close-note">
+        設定を変更してパネルを閉じると保存され、次の会話ターンから反映されます。保存時には会話履歴がクリアされます。
+      </div>
+
+      <!-- キャラクター -->
+      <section class="sect">
+        <h3 class="h">キャラクター</h3>
+        <div class="field-row">
+          <label for="character-name">キャラクター名</label>
+          <input
+            id="character-name"
+            name="character_name"
+            class="input"
+            bind:value={draft.character_name}
+            aria-describedby="character-name-help"
+            required
+          />
+          <div id="character-name-help" class="help">会話画面と発話待機表示に使う名前です。</div>
+        </div>
+        <div class="field-row">
+          <span class="field-label" id="character-image-label">キャラクター画像</span>
+          <label
+            class="dropzone"
+            class:over={dragOver}
+            class:disabled={uploadingImage}
+            aria-disabled={uploadingImage}
+            aria-describedby="character-image-help"
+            ondragover={(event) => {
+              event.preventDefault();
+              if (!uploadingImage) {
+                dragOver = true;
+              }
+            }}
+            ondragleave={() => (dragOver = false)}
+            ondrop={onDrop}
+          >
+            {uploadingImage ? "アップロード中…" : "画像をドラッグ、またはクリックして選択"}
             <input
-              id="character-name"
-              name="character_name"
-              class="input"
-              bind:value={draft.character_name}
-              aria-describedby="character-name-help"
-              required
+              type="file"
+              name="character_image"
+              class="visually-hidden"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              aria-labelledby="character-image-label"
+              disabled={uploadingImage}
+              onchange={onFileChange}
             />
-            <div id="character-name-help" class="help">会話画面と発話待機表示に使う名前です。</div>
-          </div>
-          <div class="field-row">
-            <span class="field-label" id="character-image-label">キャラクター画像</span>
-            <label
-              class="dropzone"
-              class:over={dragOver}
-              class:disabled={uploadingImage}
-              aria-disabled={uploadingImage}
-              aria-describedby="character-image-help"
-              ondragover={(event) => {
-                event.preventDefault();
-                if (!uploadingImage) {
-                  dragOver = true;
-                }
-              }}
-              ondragleave={() => (dragOver = false)}
-              ondrop={onDrop}
-            >
-              {uploadingImage ? "アップロード中…" : "画像をドラッグ、またはクリックして選択"}
-              <input
-                type="file"
-                name="character_image"
-                class="visually-hidden"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                aria-labelledby="character-image-label"
-                disabled={uploadingImage}
-                onchange={onFileChange}
-              />
-            </label>
-            <div id="character-image-help" class="help">PNG、JPEG、WebP、SVGをアップロードできます。</div>
-          </div>
-        </section>
+          </label>
+          <div id="character-image-help" class="help">PNG、JPEG、WebP、SVGをアップロードできます。</div>
+        </div>
+      </section>
 
-        <!-- 性格・口調 -->
-        <section class="sect">
-          <h3 class="h">性格 ・ 口調</h3>
-          <div class="field-row">
-            <span class="field-label">口調プリセット</span>
-            <div class="chips" role="group" aria-label="口調プリセット">
-              {#each TONE_PRESETS as tone (tone.id)}
-                <button
-                  type="button"
-                  class="chip"
-                  class:on={draft.tone_preset === tone.id}
-                  aria-pressed={draft.tone_preset === tone.id}
-                  onclick={() => (draft.tone_preset = tone.id)}
-                >
-                  {tone.label}
-                </button>
-              {/each}
-            </div>
+      <!-- 性格・口調 -->
+      <section class="sect">
+        <h3 class="h">性格 ・ 口調</h3>
+        <div class="field-row">
+          <span class="field-label">口調プリセット</span>
+          <div class="chips" role="group" aria-label="口調プリセット">
+            {#each TONE_PRESETS as tone (tone.id)}
+              <button
+                type="button"
+                class="chip"
+                class:on={draft.tone_preset === tone.id}
+                aria-pressed={draft.tone_preset === tone.id}
+                onclick={() => (draft.tone_preset = tone.id)}
+              >
+                {tone.label}
+              </button>
+            {/each}
           </div>
+        </div>
 
-          <div class="field-row slider-row">
-            <div class="top">
-              <label class="l" for="distance">距離感</label>
-              <span class="v">{distanceLabel}</span>
-            </div>
-            <input
-              id="distance"
-              name="distance"
-              type="range"
-              min="0"
-              max="100"
-              bind:value={draft.distance}
-              aria-describedby="distance-help"
-            />
-            <div class="ends"><span>敬語</span><span>タメ口</span></div>
-            <div id="distance-help" class="help">保存すると次の会話ターンからsystem promptに反映されます。</div>
+        <div class="field-row slider-row">
+          <div class="top">
+            <label class="l" for="distance">距離感</label>
+            <span class="v">{distanceLabel}</span>
           </div>
+          <input
+            id="distance"
+            name="distance"
+            type="range"
+            min="0"
+            max="100"
+            bind:value={draft.distance}
+            aria-describedby="distance-help"
+          />
+          <div class="ends"><span>敬語</span><span>タメ口</span></div>
+          <div id="distance-help" class="help">パネルを閉じると次の会話ターンからsystem promptに反映されます。</div>
+        </div>
 
-          <div class="field-row">
-            <label for="character-prompt">キャラクター設定</label>
-            <textarea
-              id="character-prompt"
-              name="character_prompt"
-              class="area"
-              rows="5"
-              bind:value={draft.character_prompt}
-              aria-describedby="character-prompt-help"
-              required
-            ></textarea>
-            <div id="character-prompt-help" class="help">
-              人格・背景・話し方の指針。会話サーバーへ system として送られます。
-            </div>
+        <div class="field-row">
+          <label for="character-prompt">キャラクター設定</label>
+          <textarea
+            id="character-prompt"
+            name="character_prompt"
+            class="area"
+            rows="5"
+            bind:value={draft.character_prompt}
+            aria-describedby="character-prompt-help"
+            required
+          ></textarea>
+          <div id="character-prompt-help" class="help">
+            人格・背景・話し方の指針。会話サーバーへ system として送られます。
           </div>
+        </div>
 
-          <div class="preview-card">
-            <div class="pl">話し方プレビュー</div>
-            <div class="pt">{preset.sample}</div>
+        <div class="preview-card">
+          <div class="pl">話し方プレビュー</div>
+          <div class="pt">{preset.sample}</div>
+        </div>
+      </section>
+
+      <!-- 声・読み上げ -->
+      <section class="sect">
+        <h3 class="h">声 ・ 読み上げ</h3>
+        <div class="field-row">
+          <label for="voice-prompt">読み上げ設定</label>
+          <textarea
+            id="voice-prompt"
+            name="read_aloud_prompt"
+            class="area"
+            rows="4"
+            bind:value={draft.read_aloud_prompt}
+            aria-describedby="voice-prompt-help"
+            required
+          ></textarea>
+          <div id="voice-prompt-help" class="help">
+            声・話し方の指針。将来のための設定で、現在の読み上げには直接使われません。
           </div>
-        </section>
+        </div>
 
-        <!-- 声・読み上げ -->
-        <section class="sect">
-          <h3 class="h">声 ・ 読み上げ</h3>
-          <div class="field-row">
-            <label for="voice-prompt">読み上げ設定</label>
-            <textarea
-              id="voice-prompt"
-              name="read_aloud_prompt"
-              class="area"
-              rows="4"
-              bind:value={draft.read_aloud_prompt}
-              aria-describedby="voice-prompt-help"
-              required
-            ></textarea>
-            <div id="voice-prompt-help" class="help">
-              声・話し方の指針。将来のための設定で、現在の読み上げには直接使われません。
-            </div>
+        <div class="field-row slider-row">
+          <div class="top">
+            <label class="l" for="speed">話す速さ</label>
+            <span class="v">{draft.speech_speed.toFixed(2)}×</span>
           </div>
+          <input
+            id="speed"
+            name="speed"
+            type="range"
+            min="0.7"
+            max="1.4"
+            step="0.05"
+            bind:value={draft.speech_speed}
+            aria-describedby="speed-help"
+          />
+          <div class="ends"><span>ゆっくり</span><span>はやい</span></div>
+          <div id="speed-help" class="help">Irodori-TTS-Serverのspeech requestへ speed として送られます。</div>
+        </div>
 
-          <div class="field-row slider-row">
-            <div class="top">
-              <label class="l" for="speed">話す速さ</label>
-              <span class="v">{draft.speech_speed.toFixed(2)}×</span>
-            </div>
-            <input
-              id="speed"
-              name="speed"
-              type="range"
-              min="0.7"
-              max="1.4"
-              step="0.05"
-              bind:value={draft.speech_speed}
-              aria-describedby="speed-help"
-            />
-            <div class="ends"><span>ゆっくり</span><span>はやい</span></div>
-            <div id="speed-help" class="help">Irodori-TTS-Serverのspeech requestへ speed として送られます。</div>
+        <div class="field-row slider-row">
+          <div class="top">
+            <label class="l" for="volume">音量</label>
+            <span class="v">{Math.round(prefs.volume * 100)}%</span>
           </div>
+          <input
+            id="volume"
+            name="volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            bind:value={prefs.volume}
+            aria-describedby="volume-help"
+          />
+          <div class="ends"><span>小さい</span><span>大きい</span></div>
+          <div id="volume-help" class="help">読み上げの再生音量です。この端末にのみ保存されます。</div>
+        </div>
 
-          <div class="field-row toggle-row">
-            <div class="tx">
-              <div class="l">自動で読み上げ</div>
-              <div class="d">返答が届いたら自動で再生します</div>
-            </div>
-            <button
-              type="button"
-              class="switch"
-              class:on={prefs.autoplay}
-              role="switch"
-              aria-checked={prefs.autoplay}
-              aria-label="自動で読み上げ"
-              onclick={() => (prefs.autoplay = !prefs.autoplay)}
-            >
-              <span class="knob"></span>
-            </button>
+        <div class="field-row toggle-row">
+          <div class="tx">
+            <div class="l">自動で読み上げ</div>
+            <div class="d">返答が届いたら自動で再生します</div>
           </div>
-        </section>
-
-        <!-- 設定保存 -->
-        <section class="sect">
-          <button type="submit" class="btn primary block" disabled={savingSettings}>
-            {savingSettings ? "保存中…" : "保存する"}
+          <button
+            type="button"
+            class="switch"
+            class:on={prefs.autoplay}
+            role="switch"
+            aria-checked={prefs.autoplay}
+            aria-label="自動で読み上げ"
+            onclick={() => (prefs.autoplay = !prefs.autoplay)}
+          >
+            <span class="knob"></span>
           </button>
-          <div id="save-help" class="help">保存すると次の会話ターンから反映され、会話履歴はクリアされます。</div>
-        </section>
-      </form>
+        </div>
+      </section>
     {/if}
 
     <!-- 接続 -->

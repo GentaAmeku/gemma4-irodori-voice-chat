@@ -69,6 +69,32 @@ async def test_tts_request_includes_selected_speaker_and_speed(tmp_path: Path) -
     assert output.read_bytes() == b"RIFF"
     assert captured_json["voice"] == {"id": "rinon"}
     assert captured_json["speed"] == 1.15
+    # 固定シードでチャンク・ターンをまたいで声質を一貫させる
+    assert captured_json["irodori"] == {"seed": 1234567}
+
+
+@pytest.mark.asyncio
+async def test_tts_request_omits_seed_when_disabled(tmp_path: Path) -> None:
+    captured_json: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_json
+        captured_json = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, content=b"RIFF")
+
+    config = AppConfig(
+        mock_services=False,
+        data_dir=tmp_path,
+        audio_dir=tmp_path / "audio",
+        tts_seed=None,
+    )
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        client = IrodoriTtsClient(config, http_client)
+        settings = AppSettings(speaker_id="none")
+        await client.synthesize("こんにちは。", settings)
+
+    assert "irodori" not in captured_json
 
 
 @pytest.mark.asyncio
