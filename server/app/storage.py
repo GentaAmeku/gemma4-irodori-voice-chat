@@ -4,7 +4,16 @@ from pathlib import Path
 import json
 import shutil
 
-from .models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
+from .models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT, RINON_CHARACTER_PROMPT
+
+
+DEFAULT_CHARACTER_IMAGE_PATH = Path(__file__).parent / "assets" / "default-character-image.png"
+OLD_READ_ALOUD_PROMPTS = {
+    "Native Japanese young adult woman, warm conversational voice.",
+    "Native Japanese young adult woman, warm conversational voice, clear pronunciation, gentle emotional nuance.",
+}
+OLD_DEFAULT_CHARACTER_NAMES = {"リノン"}
+OLD_DEFAULT_CHARACTER_PROMPTS = {LEGACY_CHARACTER_PROMPT, RINON_CHARACTER_PROMPT}
 
 
 class SettingsStore:
@@ -24,8 +33,7 @@ class SettingsStore:
             return settings
         data = json.loads(self.settings_path.read_text(encoding="utf-8"))
         settings = AppSettings.model_validate(data)
-        if settings.character_prompt == LEGACY_CHARACTER_PROMPT:
-            settings.character_prompt = DEFAULT_CHARACTER_PROMPT
+        if self._migrate_default_character(settings):
             self.save(settings)
         return settings
 
@@ -49,7 +57,27 @@ class SettingsStore:
         for image in self.data_dir.glob("character-image.*"):
             if image.is_file():
                 return image
+        if DEFAULT_CHARACTER_IMAGE_PATH.is_file():
+            return DEFAULT_CHARACTER_IMAGE_PATH
         return None
+
+    def _migrate_default_character(self, settings: AppSettings) -> bool:
+        changed = False
+        if settings.character_prompt in OLD_DEFAULT_CHARACTER_PROMPTS:
+            settings.character_prompt = DEFAULT_CHARACTER_PROMPT
+            changed = True
+        if settings.character_name in OLD_DEFAULT_CHARACTER_NAMES:
+            settings.character_name = AppSettings.model_fields["character_name"].default
+            changed = True
+        if settings.read_aloud_prompt in OLD_READ_ALOUD_PROMPTS:
+            settings.read_aloud_prompt = AppSettings.model_fields["read_aloud_prompt"].default
+            changed = True
+        if settings.tone_preset == "calm" and settings.distance == 40 and settings.speech_speed == 1.0:
+            settings.tone_preset = AppSettings.model_fields["tone_preset"].default
+            settings.distance = AppSettings.model_fields["distance"].default
+            settings.speech_speed = AppSettings.model_fields["speech_speed"].default
+            changed = True
+        return changed
 
 
 class ConversationHistory:

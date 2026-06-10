@@ -24,7 +24,7 @@ export type AppSettings = {
   distance: number;
 };
 
-export type TonePresetId = "polite" | "friendly" | "calm" | "playful";
+export type TonePresetId = "polite" | "friendly" | "calm" | "playful" | "senpai";
 
 export type SpeakerOption = {
   id: string;
@@ -80,14 +80,15 @@ function normalizeSettings(
 ): AppSettings {
   return {
     ...(settings as AppSettings),
-    speech_speed: "speech_speed" in settings && typeof settings.speech_speed === "number" ? settings.speech_speed : 1.0,
-    tone_preset: "tone_preset" in settings && isTonePresetId(settings.tone_preset) ? settings.tone_preset : "calm",
-    distance: "distance" in settings && typeof settings.distance === "number" ? settings.distance : 40,
+    speech_speed:
+      "speech_speed" in settings && typeof settings.speech_speed === "number" ? settings.speech_speed : 0.95,
+    tone_preset: "tone_preset" in settings && isTonePresetId(settings.tone_preset) ? settings.tone_preset : "senpai",
+    distance: "distance" in settings && typeof settings.distance === "number" ? settings.distance : 58,
   };
 }
 
 function isTonePresetId(value: unknown): value is TonePresetId {
-  return value === "polite" || value === "friendly" || value === "calm" || value === "playful";
+  return value === "polite" || value === "friendly" || value === "calm" || value === "playful" || value === "senpai";
 }
 
 export const api = {

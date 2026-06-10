@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.adapters import IrodoriTtsClient, OllamaClient
 from app.config import AppConfig
 from app.main import create_app
-from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT
+from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT, RINON_CHARACTER_PROMPT
 from app.service import ConversationBusyError, ConversationService, TurnFailedError
 from app.storage import ConversationHistory, SettingsStore
 
@@ -34,6 +34,17 @@ def test_settings_save_load_and_history_clear(tmp_path: Path) -> None:
     assert history.all() == []
 
 
+def test_default_settings_use_reina_senpai_character() -> None:
+    settings = AppSettings()
+
+    assert settings.character_name == "黒瀬 怜奈"
+    assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
+    assert settings.read_aloud_prompt.startswith("Native Japanese mature young woman")
+    assert settings.speech_speed == 0.95
+    assert settings.tone_preset == "senpai"
+    assert settings.distance == 58
+
+
 def test_legacy_default_character_prompt_is_migrated(tmp_path: Path) -> None:
     store = SettingsStore(tmp_path)
     store.save(AppSettings(character_prompt=LEGACY_CHARACTER_PROMPT))
@@ -41,6 +52,38 @@ def test_legacy_default_character_prompt_is_migrated(tmp_path: Path) -> None:
     settings = store.load()
 
     assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
+
+
+def test_rinon_default_character_is_migrated(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path)
+    store.save(
+        AppSettings(
+            character_name="リノン",
+            character_prompt=RINON_CHARACTER_PROMPT,
+            read_aloud_prompt="Native Japanese young adult woman, warm conversational voice, clear pronunciation, gentle emotional nuance.",
+            speech_speed=1.0,
+            tone_preset="calm",
+            distance=40,
+        )
+    )
+
+    settings = store.load()
+
+    assert settings.character_name == "黒瀬 怜奈"
+    assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
+    assert settings.read_aloud_prompt.startswith("Native Japanese mature young woman")
+    assert settings.speech_speed == 0.95
+    assert settings.tone_preset == "senpai"
+    assert settings.distance == 58
+
+
+def test_character_image_falls_back_to_default_asset(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path)
+
+    image = store.find_character_image()
+
+    assert image is not None
+    assert image.name == "default-character-image.png"
 
 
 @pytest.mark.asyncio

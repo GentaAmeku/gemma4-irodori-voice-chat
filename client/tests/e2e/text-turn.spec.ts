@@ -1,7 +1,29 @@
 import { expect, test } from "@playwright/test";
 
+const DEFAULT_SETTINGS = {
+  character_name: "黒瀬 怜奈",
+  character_prompt:
+    "あなたは黒瀬 怜奈。利用者より少し年上の、黒髪ロングで落ち着いた雰囲気の女性。" +
+    "感情を大きく表に出さず、静かに相手を観察して、必要なことを短く整理して伝える。" +
+    "冷たく見えることはあるが、突き放す人ではない。" +
+    "利用者が疲れている、迷っている、失敗したと感じているときは、まず一文で受け止めてから、次にできる小さな一手を示す。" +
+    "口調は自然な日本語。丁寧さを残しつつ、少しだけくだけた先輩らしい話し方にする。" +
+    "語尾は落ち着かせ、「〜だと思う」「〜しておくといい」「無理しなくていい」などを使う。" +
+    "過剰に明るくしない。説教、上から目線、依存的な甘さ、露骨な色気、テンションの高い励ましは避ける。" +
+    "返答は原則1〜3文。必要なときだけ、短く核心を突く。",
+  read_aloud_prompt:
+    "Native Japanese mature young woman, cool composed voice, low-to-mid pitch, calm and slightly slow pacing, clear pronunciation, subtle warmth, elegant senpai tone, restrained emotion.",
+  speaker_id: "none",
+  speech_speed: 0.95,
+  tone_preset: "senpai",
+  distance: 58,
+};
+
 test.beforeEach(async ({ page }) => {
   await page.request.delete("http://127.0.0.1:8000/api/history");
+  await page.request.put("http://127.0.0.1:8000/api/settings", {
+    data: DEFAULT_SETTINGS,
+  });
   await page.addInitScript(() => {
     (window as Window & { __audioPlayCalls?: number }).__audioPlayCalls = 0;
     Object.defineProperty(window.HTMLMediaElement.prototype, "play", {
@@ -18,7 +40,7 @@ test.beforeEach(async ({ page }) => {
 test("connects to the mock conversation server and completes a text turn", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.locator("#character-title")).toHaveText("リノン");
+  await expect(page.locator("#character-title")).toHaveText("黒瀬 怜奈");
   await expect(page.getByText("gemma4:12b / mock")).toBeVisible();
   await expect(page.getByText("接続しました")).toBeVisible();
   await expect(page.getByText("すべて接続済み")).toBeVisible();
@@ -35,7 +57,9 @@ test("connects to the mock conversation server and completes a text turn", async
   await page.getByRole("button", { name: "送信" }).click();
 
   await expect(page.getByText("クライアントE2Eの確認です", { exact: true })).toBeVisible();
-  await expect(page.getByText("リノンです。『クライアントE2Eの確認です』について、まずは短く返すね。")).toBeVisible();
+  await expect(
+    page.getByText("黒瀬 怜奈です。『クライアントE2Eの確認です』について、まずは短く返すね。"),
+  ).toBeVisible();
   await expect(page.locator(".msg.assistant audio")).toHaveAttribute("src", /\/media\/audio\/.+\.wav$/);
   await expect(page.locator(".msg.assistant .audiochip")).toBeVisible();
 });
@@ -64,7 +88,7 @@ test("shows the user message while waiting for the assistant response", async ({
   await page.getByRole("button", { name: "送信" }).click();
 
   await expect(page.getByText("今日も疲れたね", { exact: true })).toBeVisible();
-  await expect(page.getByText("リノンが返答生成中…")).toBeVisible();
+  await expect(page.getByText("黒瀬 怜奈が返答生成中…")).toBeVisible();
 
   releaseResponse();
   await expect(page.getByText("今日もおつかれさま。少しだけ休もうね。")).toBeVisible();
@@ -155,7 +179,7 @@ test("does not autoplay audio when autoplay is disabled", async ({ page }) => {
   await page.getByLabel("テキスト入力").fill("自動再生オフの確認です");
   await page.getByRole("button", { name: "送信" }).click();
 
-  await expect(page.getByText("リノンです。『自動再生オフの確認です』について、まずは短く返すね。")).toBeVisible();
+  await expect(page.getByText("黒瀬 怜奈です。『自動再生オフの確認です』について、まずは短く返すね。")).toBeVisible();
   await expect(page.locator(".msg.assistant .audiochip")).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => (window as Window & { __audioPlayCalls?: number }).__audioPlayCalls ?? 0))

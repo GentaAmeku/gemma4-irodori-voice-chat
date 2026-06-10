@@ -14,6 +14,7 @@ export const TONE_PRESETS: TonePreset[] = [
   { id: "friendly", label: "フレンドリー", sample: "いいね！ぜひやってみよう。" },
   { id: "calm", label: "落ち着き", sample: "大丈夫、ゆっくりで構いませんよ。" },
   { id: "playful", label: "ちょっと甘え", sample: "ねえ、もう少しだけ話さない…？" },
+  { id: "senpai", label: "先輩", sample: "無理しなくていい。今は、できることを一つだけ片付けよう。" },
 ];
 
 export type LocalPrefs = {

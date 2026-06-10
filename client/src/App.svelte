@@ -60,7 +60,7 @@
 
   // パネル表示中と保存中はドラフトを表示し、保存成功でそのままサーバー値へ引き継ぐ
   const previewSettings = $derived((settingsOpen || savingSettings) && settingsDraft ? settingsDraft : settings);
-  const characterName = $derived(previewSettings?.character_name ?? "リノン");
+  const characterName = $derived(previewSettings?.character_name ?? "黒瀬 怜奈");
   const characterPromptPreview = $derived(previewSettings ? buildCharacterPromptPreview(previewSettings) : "");
   const canConverse = $derived(displayState === "ready" && textInput.trim().length > 0);
   const characterImageUrl = $derived(`${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`);
