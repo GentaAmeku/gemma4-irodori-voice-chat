@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemma4 MacBook Local Setup"
+  short_description: "MacBook local setup for Gemma4 Irodori."
+  default_prompt: "MacBookローカルでGemma4 Irodori ChatのOllama/Irodori/会話サーバー/クライアントを起動・検証してください。"

@@ -125,6 +125,7 @@ Linux AMD:
 - [Design Notes](./design.md)
 - [Context Glossary](../CONTEXT.md)
 - [Gemma4 Irodori Setup Skill](../.agents/skills/gemma4-irodori-setup/SKILL.md)
+- [Gemma4 MacBook Local Setup Skill](../.agents/skills/gemma4-macbook-local-setup/SKILL.md)
 - [Gemma4 Windows AMD Setup Skill](../.agents/skills/gemma4-windows-amd-setup/SKILL.md)
 
 ## 動作確認
@@ -207,7 +208,7 @@ MacBookローカル実サービス確認:
 - 現状の実機 `/api/speakers` は `none` のみ。声質をキャラクターに寄せるにはIrodori-TTS-Serverへ参照音声を登録する必要がある。
 - `read_aloud_prompt` は将来用のメタデータで、現行Irodori-TTS-Serverのspeech endpointには直接渡していない。
 - Windows AMD環境セットアップやLAN公開の切り分けは `gemma4-windows-amd-setup` skill を使う。
-- MacBookローカル構成は [MacBook Local Setup](./macbook-local-setup.md) を使う。
+- MacBookローカル構成は [MacBook Local Setup](./macbook-local-setup.md) と `gemma4-macbook-local-setup` skill を使う。
 - MacBookローカルのIrodori初回生成は長い。会話サーバーはMac用スクリプトで `GIC_REQUEST_TIMEOUT_SECONDS=600` にする。
 - Tauri化はWebクライアントと会話サーバーが安定してから。
 - スマホ実機対応もPC Webの縦切り後。

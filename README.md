@@ -197,3 +197,5 @@ pnpm test:e2e
 ## Agent Skills
 
 - [Gemma4 Irodori Setup](./.agents/skills/gemma4-irodori-setup/SKILL.md): Windows AMD / WSLセットアップ支援用のCodexスキル。
+- [Gemma4 MacBook Local Setup](./.agents/skills/gemma4-macbook-local-setup/SKILL.md): MacBookローカルのOllama / Irodori / 会話サーバー / クライアント起動・検証用のCodexスキル。
+- [Gemma4 Windows AMD Setup](./.agents/skills/gemma4-windows-amd-setup/SKILL.md): Windows AMD推論PC、WSL2 Ubuntu、LAN公開の切り分け用のCodexスキル。

@@ -9,6 +9,9 @@ Use this skill for setup and troubleshooting work in this repository.
 
 ## Default stance
 
+- First identify the target profile:
+  - Windows AMD / WSL desktop PC: use `docs/wsl-amd-setup.md` and the `scripts/wsl/*.sh` commands.
+  - MacBook local development: use `docs/macbook-local-setup.md` and the `scripts/mac/*.sh` commands.
 - Treat WSL2 Ubuntu as the standard Windows AMD setup path.
 - Assume WSL is already installed; do not make the project setup depend on `wsl --install`.
 - Keep Windows native Irodori as a fallback only, not the main path.
