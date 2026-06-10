@@ -221,6 +221,11 @@ MacBookローカル実サービス確認:
 - desktop PC再起動後の再確認: `/api/speakers` は引き続き `none` のみ
 - desktop PC再起動後の再確認: `POST /api/turns/text` は成功し、返答 `了解、しっかり届いているよ。` とWAV URL `/media/audio/81bc04ab0cdf4a39900bcc3829896199.wav` が返った
 - desktop PC再起動後の再確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 253484` でMacBookから取得可能
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/settings` に `speech_speed: 1.0` が出ることを確認
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `curl http://192.168.3.2:8000/api/health` は `ready: true` / `gemma4:12b` / `mock_services: false`
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `/api/speakers` は引き続き `none` のみ
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: `POST /api/turns/text` は成功し、返答 `確認したよ。準備ができたら教えてね。` とWAV URL `/media/audio/d5c9d0093c2143aa8c92a4efd67c39f3.wav` が返った
+- desktop PC側WSLリポジトリpull / 会話サーバー再起動後の確認: 上記WAVは `HTTP 200` / `content-type: audio/x-wav` / `content-length: 349484` でMacBookから取得可能
 - UI Implementation Plan Phase 4のクライアント側キャンセル: done
 - Phase 4キャンセルの実機UI確認: desktop PC会話サーバーへ接続したMacBook Web UIで、キャンセル後にpending発話が消え、遅延応答が画面へ反映されないことを確認
 - Phase 4の制約: 同期RESTのため、キャンセルはクライアント側request中断と画面上の破棄。サーバー側LLM/TTS処理停止までは保証しない
@@ -235,11 +240,10 @@ MacBookローカル実サービス確認:
 
 推奨順:
 
-1. desktop PC側WSLリポジトリへPhase 2/4の修正を反映し、会話サーバー再起動後に `/api/settings` の `speech_speed` を実機確認する
-2. 参照音声ファイルを用意し、Irodori-TTS-Serverへ登録して `/api/speakers` で `none` 以外が出ることを実機確認する
-3. 将来のジョブID方式またはWebSocket方式へ移れるよう、会話進行状態の型を整理する
-4. 失敗時ログとUIメッセージの改善
-5. 音声入力フェーズ
+1. 参照音声ファイルを用意し、Irodori-TTS-Serverへ登録して `/api/speakers` で `none` 以外が出ることを実機確認する
+2. 将来のジョブID方式またはWebSocket方式へ移れるよう、会話進行状態の型を整理する
+3. 失敗時ログとUIメッセージの改善
+4. 音声入力フェーズ
    - WebSocket設計
    - ブラウザマイク入力
    - PCM変換
