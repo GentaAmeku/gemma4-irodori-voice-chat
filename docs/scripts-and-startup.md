@@ -63,6 +63,7 @@ flowchart LR
 | スクリプト | 何をするか |
 |---|---|
 | `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server` を clone し `uv sync --extra rocm`（AMD GPU） |
+| `setup-voicedesign-wsl-amd.sh` | `../Irodori-TTS` を clone し `uv sync --extra rocm`。VoiceDesign での参照音声サンプル生成用 |
 | `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。日常起動の推奨入口 |
 | `start-irodori-wsl-amd.sh` | Irodori を `rocm` で起動（`0.0.0.0:8088`） |
 | `start-conversation-server-wsl.sh` | 会話サーバーを **`0.0.0.0:8000`** で起動（LAN 公開して MacBook から届くように）。Ollama ホストを自動解決（後述） |
@@ -95,10 +96,11 @@ flowchart LR
 
 | スクリプト | 何をするか |
 |---|---|
+| `generate-voicedesign-sample.sh` | VoiceDesign(600M-v3) で参照音声用の候補サンプルを生成（長さ 10〜30 秒チェック付き） |
 | `register-irodori-voice.sh` | Irodori(8088) に直接 `voice-id` + 音声ファイルを登録（`--replace` で置換） |
 | `register-conversation-voice.sh` | 会話サーバー(8000)経由で登録（MacBook から Irodori へ直接届かない標準構成向け） |
 
-> MVP では話者は `none`（no-ref 音声）。参照音声は将来用。詳細は [Reference Voice Setup](./reference-voice-setup.md)。
+> MVP では話者は `none`（no-ref 音声）。参照音声は将来用。詳細は [Reference Voice Setup](./reference-voice-setup.md) / [VoiceDesign Sample Setup](./voicedesign-sample-setup.md)。
 
 ---
 

@@ -39,3 +39,4 @@ curl -X POST http://127.0.0.1:8000/api/turns/text \
 
 参照音声登録はMVP外の将来用です。
 必要になった場合は [Reference Voice Setup](./reference-voice-setup.md) を参照してください。
+VoiceDesignモデルで参照音声サンプルを生成する場合は [VoiceDesign Sample Setup](./voicedesign-sample-setup.md) を参照してください。
