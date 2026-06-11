@@ -87,14 +87,13 @@ scripts/generate-voicedesign-sample.sh --caption "低くかすれた声の、物
 
    このブランチには `irodori.caption` / `cfg_scale_caption` の受け口と、600M-v3-VoiceDesignを読み込むための `irodori-tts` ライブラリ更新が含まれる。
 
-2. チェックポイントを指定してTTSサーバーを起動する:
+2. チェックポイントを切り替える。`../Irodori-TTS-Server/.env` を編集する:
 
-   ```bash
-   IRODORI_HF_CHECKPOINT=Aratako/Irodori-TTS-600M-v3-VoiceDesign \
-     uv run --extra rocm python -m irodori_openai_tts --host 0.0.0.0 --port 8088
+   ```ini
+   IRODORI_HF_CHECKPOINT=Aratako/Irodori-TTS-600M-v3-VoiceDesign
    ```
 
-   初回起動時にHugging Faceからモデルをダウンロードする。
+   `.env` はサーバー起動時に自動で読まれるため、`start-desktop-stack.sh` / `start-irodori-wsl-amd.sh` など通常の起動スクリプトがそのまま使える。初回起動時にHugging Faceからモデルをダウンロードする。500M-v3へ戻すときはこの行を元に戻して再起動する。
 
 3. Webクライアントの設定パネルで「読み上げ設定」を編集して保存する。デフォルトは「ハスキーで低めの声の、落ち着いた大人の女性。余裕のあるゆっくりした話し方で、感情表現は控えめ。」。
 4. 実ターンで読み上げを確認する。声質が安定しない場合は `GIC_TTS_SEED`(固定シード)を併用したまま、captionの表現を具体的にする。
