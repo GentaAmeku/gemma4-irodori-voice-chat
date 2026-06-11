@@ -18,6 +18,7 @@ IRODORI_STATUS="未実行"
 PORTPROXY_STATUS="未実行"
 CONVERSATION_STATUS="未実行"
 LAN_HEALTH_STATUS="未確認"
+CONVERSATION_TTS_STATUS="未確認"
 
 mkdir -p "$LOG_DIR"
 
@@ -369,6 +370,90 @@ EOF
   return 1
 }
 
+check_conversation_dependencies() {
+  local url="http://127.0.0.1:$GIC_APP_PORT/api/health"
+  local health_json
+  if ! health_json="$(curl -fsS "$url" 2>/dev/null)"; then
+    CONVERSATION_TTS_STATUS="失敗（会話サーバー health を取得できません）"
+    echo "警告: 会話サーバーの health を取得できないため、TTS 到達性を確認できませんでした: $url" >&2
+    return 1
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    if echo "$health_json" | grep -q '"tts"[[:space:]]*:[[:space:]]*{[^}]*"ok"[[:space:]]*:[[:space:]]*true'; then
+      CONVERSATION_TTS_STATUS="OK（会話サーバーから TTS へ到達）"
+      echo "OK: 会話サーバーから Irodori-TTS へ到達できました。"
+      return 0
+    fi
+    CONVERSATION_TTS_STATUS="失敗（会話サーバーから TTS へ到達不可）"
+    echo "警告: 会話サーバーから Irodori-TTS へ到達できません。python3 がないため詳細解析は省略します。" >&2
+    return 1
+  fi
+
+  local health_lines
+  mapfile -t health_lines < <(
+    printf '%s' "$health_json" | python3 -c '
+import json
+import sys
+
+try:
+    data = json.load(sys.stdin)
+except Exception as exc:
+    print("unknown")
+    print("unknown")
+    print("unknown")
+    print("")
+    print(f"health json parse failed: {exc}")
+    raise SystemExit(0)
+
+tts = data.get("tts") or {}
+ollama = data.get("ollama") or {}
+print(str(data.get("ready")).lower())
+print(str(ollama.get("ok")).lower())
+print(str(tts.get("ok")).lower())
+print(str(data.get("tts_base_url") or ""))
+print(str(tts.get("detail") or ""))
+'
+  )
+
+  local ready="${health_lines[0]:-unknown}"
+  local ollama_ok="${health_lines[1]:-unknown}"
+  local tts_ok="${health_lines[2]:-unknown}"
+  local server_tts_base_url="${health_lines[3]:-}"
+  local tts_detail="${health_lines[4]:-}"
+
+  if [ -n "$server_tts_base_url" ] && [ "$server_tts_base_url" != "$GIC_TTS_BASE_URL" ]; then
+    echo "警告: 起動中の会話サーバーが現在の設定と異なる TTS URL を使っています。" >&2
+    echo "  起動中の会話サーバー: $server_tts_base_url" >&2
+    echo "  今回の起動設定:       $GIC_TTS_BASE_URL" >&2
+    echo "  対応: 既存の会話サーバーを Ctrl-C や PID で停止してから再起動してください。" >&2
+  fi
+
+  if [ "$tts_ok" = "true" ]; then
+    CONVERSATION_TTS_STATUS="OK（会話サーバーから TTS へ到達）"
+    echo "OK: 会話サーバーから Irodori-TTS へ到達できました: ${server_tts_base_url:-$GIC_TTS_BASE_URL}"
+    return 0
+  fi
+
+  CONVERSATION_TTS_STATUS="失敗（会話サーバーから TTS へ到達不可）"
+  cat >&2 <<EOF
+
+警告: 会話サーバーから Irodori-TTS へ到達できません。
+  会話サーバー ready: $ready
+  Ollama health:      $ollama_ok
+  TTS health:         $tts_ok
+  TTS URL:            ${server_tts_base_url:-$GIC_TTS_BASE_URL}
+  詳細:               ${tts_detail:-不明}
+
+確認コマンド（WSL）:
+  curl -v ${server_tts_base_url:-$GIC_TTS_BASE_URL}/health
+  curl -v http://127.0.0.1:$GIC_APP_PORT/api/health
+  tail -80 "$LOG_DIR/irodori-wsl.log"
+
+EOF
+  return 1
+}
+
 start_conversation_server() {
   local ollama_host="$1"
 
@@ -430,6 +515,7 @@ echo ""
 start_irodori
 refresh_windows_portproxy "$LAN_IP" || true
 start_conversation_server "$OLLAMA_HOST_VALUE"
+check_conversation_dependencies || true
 check_windows_lan_health "$LAN_IP" || true
 
 cat <<EOF
@@ -438,9 +524,10 @@ cat <<EOF
   Irodori-TTS:      $IRODORI_STATUS
   portproxy更新:    $PORTPROXY_STATUS
   会話サーバー:      $CONVERSATION_STATUS
+  サーバー→TTS:     $CONVERSATION_TTS_STATUS
   LAN疎通確認:      $LAN_HEALTH_STATUS
 
-会話サーバーは利用可能です。
+会話サーバーは起動しています。サーバー→TTS が失敗の場合、チャット応答の読み上げは失敗します。
 
 ローカル確認:
   http://127.0.0.1:$GIC_APP_PORT/api/health
