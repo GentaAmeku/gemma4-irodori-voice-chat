@@ -1,0 +1,4 @@
+interface:
+  display_name: "Start Stack"
+  short_description: "Detect the environment and start the full stack."
+  default_prompt: "実行環境(MacかWSLか)を判別して、Ollama / Irodori-TTS-Server / 会話サーバー / クライアントを起動し、checkスクリプトで疎通確認してください。"

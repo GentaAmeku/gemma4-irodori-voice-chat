@@ -132,5 +132,6 @@ All documents are written in Japanese.
 
 ## Agent Skills
 
-- **Claude Code** (`.claude/skills/`): `/check-all` (run all checks), `/start-stack` (detect the environment and start the stack). Automatic format/check hooks are described in [.claude/hooks/README.md](./.claude/hooks/README.md).
-- **Codex** (`.agents/skills/`): [gemma4-windows-amd-setup](./.agents/skills/gemma4-windows-amd-setup/SKILL.md) (Windows AMD / WSL / LAN exposure triage), [gemma4-macbook-local-setup](./.agents/skills/gemma4-macbook-local-setup/SKILL.md) (MacBook-only profile).
+- **Shared skills**: `/check-all` (run all checks) and `/start-stack` (detect the environment and start the stack). Identical copies live in both `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); CI verifies they stay in sync.
+- **Claude Code hooks**: automatic formatting on edit (prettier / ruff) and end-of-turn checks (svelte-check / ruff / pytest). See [.claude/hooks/README.md](./.claude/hooks/README.md).
+- **Codex-only** (`.agents/skills/`): [gemma4-windows-amd-setup](./.agents/skills/gemma4-windows-amd-setup/SKILL.md) (Windows AMD / WSL / LAN exposure triage), [gemma4-macbook-local-setup](./.agents/skills/gemma4-macbook-local-setup/SKILL.md) (MacBook-only profile).

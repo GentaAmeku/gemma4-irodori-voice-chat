@@ -14,8 +14,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - run: uv sync
@@ -26,17 +26,17 @@ jobs:
   client:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 11.1.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: client/pnpm-lock.yaml
       # E2E はモックの会話サーバー(uv)を Playwright が自動起動する
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - run: uv sync
@@ -62,5 +62,12 @@ jobs:
   scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: bash -n scripts/*.sh scripts/mac/*.sh scripts/wsl/*.sh
+      # check-all / start-stack スキルは Claude Code(.claude)と Codex(.agents)の両方に
+      # 同一内容で置いている。片方だけ編集されて中身がズレたら CI で落とす
+      - name: Check skill copies stay in sync (.claude/skills <-> .agents/skills)
+        run: |
+          for s in check-all start-stack; do
+            diff ".claude/skills/$s/SKILL.md" ".agents/skills/$s/SKILL.md"
+          done

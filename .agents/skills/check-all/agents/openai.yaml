@@ -1,0 +1,4 @@
+interface:
+  display_name: "Check All"
+  short_description: "Run all repo checks (server / client / scripts)."
+  default_prompt: "このリポジトリの検証一式(server: ruff/pytest、client: format/check/build/test:e2e、scripts: bash -n)を実行して、結果をまとめて報告してください。"

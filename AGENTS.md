@@ -50,3 +50,10 @@ uv run pytest           # テスト
   以後、コミット時にステージされたファイルを自動整形して再ステージし、`client/` は `svelte-check`、`server/` は `ruff check` + `pytest` を実行する(失敗するとコミットを中止)。
 
 Codex で作業する場合も、上記の編集フローに従い、`git config core.hooksPath .githooks` を一度実行しておくこと。
+
+## スキル(Claude Code / Codex 共通)
+
+`check-all`(検証一式)と `start-stack`(環境判別してスタック起動)は、Claude Code 用([`.claude/skills/`](.claude/skills/))と Codex 用([`.agents/skills/`](.agents/skills/))の両方に**同一内容**で置いている。
+
+- どちらかの SKILL.md を編集したら、必ずもう片方へ同じ内容をコピーする(完全一致を CI で検証しており、ズレるとCIが落ちる)。
+- Codex 専用のセットアップスキル(`gemma4-windows-amd-setup` / `gemma4-macbook-local-setup`)は `.agents/skills/` のみ。
