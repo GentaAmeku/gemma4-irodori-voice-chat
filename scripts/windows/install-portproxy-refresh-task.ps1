@@ -40,8 +40,6 @@ $principal = New-ScheduledTaskPrincipal `
   -LogonType Interactive `
   -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet `
-  -AllowStartIfOnBatteries `
-  -DisallowStartIfOnBatteries:$false `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
 
 Register-ScheduledTask `
