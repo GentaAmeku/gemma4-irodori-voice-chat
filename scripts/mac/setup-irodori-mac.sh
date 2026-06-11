@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 IRODORI_TTS_SERVER_DIR="${IRODORI_TTS_SERVER_DIR:-"$ROOT_DIR/../Irodori-TTS-Server"}"
 IRODORI_UV_EXTRA="${IRODORI_UV_EXTRA:-cpu}"
+# 既定はcaption対応(読み上げ設定→声質指示)を含むGentaAmekuフォーク。本家を使う場合は上書きする。
+IRODORI_TTS_SERVER_REPO="${IRODORI_TTS_SERVER_REPO:-https://github.com/GentaAmeku/Irodori-TTS-Server.git}"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -16,7 +18,7 @@ require_command git
 require_command uv
 
 if [ ! -d "$IRODORI_TTS_SERVER_DIR/.git" ]; then
-  git clone https://github.com/Aratako/Irodori-TTS-Server.git "$IRODORI_TTS_SERVER_DIR"
+  git clone "$IRODORI_TTS_SERVER_REPO" "$IRODORI_TTS_SERVER_DIR"
 fi
 
 cd "$IRODORI_TTS_SERVER_DIR"

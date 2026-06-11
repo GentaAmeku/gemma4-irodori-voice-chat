@@ -48,9 +48,10 @@ flowchart LR
 ```text
 1. (Windows)            ollama pull gemma4:12b
 2. (WSL)                git clone https://github.com/GentaAmeku/gemma4-irodori-voice-chat.git
-3. (WSL・初回のみ)       ./scripts/wsl/setup-irodori-wsl-amd.sh    # ../Irodori-TTS-Server を用意
+                        cd gemma4-irodori-voice-chat
+3. (WSL・初回のみ)       ./scripts/wsl/setup-irodori-wsl-amd.sh    # ../Irodori-TTS-Server を用意(caption対応フォーク)
 4. (WSL)                ./scripts/wsl/start-desktop-stack.sh      # Irodori + 会話サーバーを一括起動
-5. (WSL・別ターミナル)   ./scripts/wsl/start-client-wsl.sh         # Webクライアントを起動
+5. (WSL・別ターミナル)   ./scripts/wsl/start-client-wsl.sh         # Webクライアント起動(初回は依存を自動インストール)
 6. (Windows)            ブラウザで http://localhost:5173 を開く
 ```
 
@@ -59,6 +60,11 @@ flowchart LR
 ```sh
 ./scripts/wsl/check-wsl-stack.sh
 ```
+
+初回起動でつまずきやすいポイント:
+
+- **手順4の初回は数分かかります。** Irodori-TTS-Server が初回起動時にモデルを Hugging Face からダウンロードするためです。「did not become ready」と表示されても裏でダウンロードは続いているので、`.logs/irodori-wsl.log` で進行を確認し、完了後にもう一度手順4を実行してください。
+- **「Windows Ollama is not reachable from WSL」と出る場合**は、Windows側でユーザー環境変数 `OLLAMA_HOST=0.0.0.0:11434` を設定し、Ollamaを再起動してください。詳細は [WSL AMD Setup](./docs/wsl-amd-setup.md) のトラブルシュートを参照。
 
 ### MacBookなど別端末から使う場合（標準構成）
 

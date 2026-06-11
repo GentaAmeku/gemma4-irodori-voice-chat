@@ -48,9 +48,10 @@ Prerequisites: WSL2 Ubuntu installed, Ollama on the Windows side, and `uv` / `no
 ```text
 1. (Windows)               ollama pull gemma4:12b
 2. (WSL)                   git clone https://github.com/GentaAmeku/gemma4-irodori-voice-chat.git
-3. (WSL, first time only)  ./scripts/wsl/setup-irodori-wsl-amd.sh    # prepares ../Irodori-TTS-Server
+                           cd gemma4-irodori-voice-chat
+3. (WSL, first time only)  ./scripts/wsl/setup-irodori-wsl-amd.sh    # prepares ../Irodori-TTS-Server (caption-enabled fork)
 4. (WSL)                   ./scripts/wsl/start-desktop-stack.sh      # starts Irodori + conversation server
-5. (WSL, second terminal)  ./scripts/wsl/start-client-wsl.sh         # starts the web client
+5. (WSL, second terminal)  ./scripts/wsl/start-client-wsl.sh         # starts the web client (auto-installs deps on first run)
 6. (Windows)               open http://localhost:5173 in your browser
 ```
 
@@ -59,6 +60,11 @@ Health check:
 ```sh
 ./scripts/wsl/check-wsl-stack.sh
 ```
+
+Common first-run pitfalls:
+
+- **Step 4 takes several minutes on the first run** because Irodori-TTS-Server downloads its model checkpoint from Hugging Face. If you see "did not become ready", the download is still running in the background — watch `.logs/irodori-wsl.log` and rerun step 4 once it finishes.
+- **If you see "Windows Ollama is not reachable from WSL"**, set the user environment variable `OLLAMA_HOST=0.0.0.0:11434` on the Windows side and restart Ollama. See the troubleshooting section of [WSL AMD Setup](./docs/wsl-amd-setup.md).
 
 ### Using another device as the client (standard setup)
 

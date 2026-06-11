@@ -74,18 +74,27 @@ scripts/generate-voicedesign-sample.sh --caption "低くかすれた声の、物
 
 会話の読み上げ自体をVoiceDesignで行う構成。アプリの「読み上げ設定」がspeech requestの `irodori.caption` としてそのまま送られ、設定パネルから声質を文章で変えられるようになる。
 
-1. desktop PC / WSLの `../Irodori-TTS-Server` を caption対応ブランチへ更新し、依存を同期する。
-   caption対応はフォーク [GentaAmeku/Irodori-TTS-Server](https://github.com/GentaAmeku/Irodori-TTS-Server) の `feature/voicedesign-caption` ブランチにある(本家には未マージ):
+1. 推論PC / WSLの `../Irodori-TTS-Server` を caption対応のフォーク main へ更新し、依存を同期する。
+   caption対応はフォーク [GentaAmeku/Irodori-TTS-Server](https://github.com/GentaAmeku/Irodori-TTS-Server) の `main` にマージ済み。`scripts/wsl/setup-irodori-wsl-amd.sh` で新規セットアップした場合は最初からこのフォークがcloneされるので、最新化するだけでよい:
 
    ```bash
    cd ../Irodori-TTS-Server
-   git remote add fork https://github.com/GentaAmeku/Irodori-TTS-Server.git  # 未追加の場合のみ
-   git fetch fork
-   git switch -c feature/voicedesign-caption fork/feature/voicedesign-caption
+   git pull
    uv sync --extra rocm
    ```
 
-   このブランチには `irodori.caption` / `cfg_scale_caption` の受け口と、600M-v3-VoiceDesignを読み込むための `irodori-tts` ライブラリ更新が含まれる。
+   本家(Aratako)からcloneした既存環境は、リモートをフォークへ切り替える:
+
+   ```bash
+   cd ../Irodori-TTS-Server
+   git remote set-url origin https://github.com/GentaAmeku/Irodori-TTS-Server.git
+   git fetch origin
+   git switch main
+   git merge --ff-only origin/main
+   uv sync --extra rocm
+   ```
+
+   うまくいかない場合は `../Irodori-TTS-Server` を削除して `scripts/wsl/setup-irodori-wsl-amd.sh` を実行し直すのが確実。フォークのmainには `irodori.caption` / `cfg_scale_caption` の受け口と、600M-v3-VoiceDesignを読み込むための `irodori-tts` ライブラリ更新が含まれる。
 
 2. チェックポイントを切り替える。`../Irodori-TTS-Server/.env` を編集する:
 

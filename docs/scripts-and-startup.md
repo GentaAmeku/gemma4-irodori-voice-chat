@@ -51,7 +51,7 @@ flowchart LR
 
 | スクリプト | 何をするか |
 |---|---|
-| `setup-irodori-mac.sh` | `../Irodori-TTS-Server` を clone し `uv sync --extra cpu`（Mac は CPU backend）。`.env` を用意 |
+| `setup-irodori-mac.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra cpu`（Mac は CPU backend）。`.env` を用意 |
 | `start-inference-stack-mac.sh` | Ollama を起動し、モデル `gemma4:e4b-mlx` の有無を確認。続けて Irodori を `cpu` で起動。ログ/PID は `.logs/` |
 | `start-irodori-mac.sh` | Irodori だけを前面起動（`cpu`、`127.0.0.1:8088`） |
 | `start-conversation-server-mac.sh` | 会話サーバーを **`127.0.0.1:8000`** で起動（外に公開しない）。`gemma4:e4b-mlx` / タイムアウト 600 秒 |
@@ -62,12 +62,12 @@ flowchart LR
 
 | スクリプト | 何をするか |
 |---|---|
-| `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server` を clone し `uv sync --extra rocm`（AMD GPU） |
+| `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra rocm`（AMD GPU） |
 | `setup-voicedesign-wsl-amd.sh` | `../Irodori-TTS` を clone し `uv sync --extra rocm`。VoiceDesign での参照音声サンプル生成用 |
 | `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。日常起動の推奨入口 |
 | `start-irodori-wsl-amd.sh` | Irodori を `rocm` で起動（`0.0.0.0:8088`） |
 | `start-conversation-server-wsl.sh` | 会話サーバーを **`0.0.0.0:8000`** で起動（LAN 公開して MacBook から届くように）。Ollama ホストを自動解決（後述） |
-| `start-client-wsl.sh` | Web クライアントを WSL 内で起動。**Windows PC 1台で完結する構成**用（Windows のブラウザから `http://localhost:5173` を開く） |
+| `start-client-wsl.sh` | Web クライアントを WSL 内で起動（`node_modules` がなければ `pnpm install` を自動実行）。**Windows PC 1台で完結する構成**用（Windows のブラウザから `http://localhost:5173` を開く） |
 | `check-wsl-stack.sh` | Ollama / Irodori / 会話サーバーの health とサンプル会話を確認 |
 | `reset-character-defaults.sh` | キャラクター画像・設定をデフォルトへ戻す（`--image-only` / `--settings-only` / `-y`） |
 
