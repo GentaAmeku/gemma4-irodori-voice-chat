@@ -3,8 +3,6 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 import re
-import shutil
-import tempfile
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +14,8 @@ from .adapters import IrodoriTtsClient, OllamaClient
 from .config import AppConfig, load_config
 from .models import (
     AppSettings,
+    CHARACTER_PRESETS,
+    CharacterPreset,
     HealthResponse,
     HistoryResponse,
     SpeakerOption,
@@ -105,6 +105,10 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     async def put_settings(settings: AppSettings) -> AppSettings:
         return app.state.conversation_service.save_settings(settings)
 
+    @app.get("/api/presets", response_model=list[CharacterPreset])
+    async def presets() -> list[CharacterPreset]:
+        return CHARACTER_PRESETS
+
     @app.get("/api/speakers", response_model=list[SpeakerOption])
     async def speakers() -> list[SpeakerOption]:
         return await app.state.tts.speakers()
@@ -165,31 +169,11 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
 
     @app.get("/api/character-image")
     async def get_character_image():
-        image = app.state.settings_store.find_character_image()
+        settings = app.state.settings_store.load()
+        image = app.state.settings_store.find_character_image(settings.preset_id)
         if not image:
             raise HTTPException(status_code=404, detail="character_image_not_found")
         return FileResponse(image)
-
-    @app.post("/api/character-image")
-    async def upload_character_image(file: UploadFile = File(...)):
-        allowed = {
-            "image/png": ".png",
-            "image/jpeg": ".jpg",
-            "image/webp": ".webp",
-            "image/svg+xml": ".svg",
-        }
-        suffix = allowed.get(file.content_type or "")
-        if not suffix:
-            raise HTTPException(status_code=400, detail="unsupported_image_type")
-
-        with tempfile.NamedTemporaryFile(delete=False) as temp:
-            temp_path = Path(temp.name)
-            shutil.copyfileobj(file.file, temp)
-        try:
-            saved = app.state.settings_store.save_character_image(temp_path, suffix)
-        finally:
-            temp_path.unlink(missing_ok=True)
-        return {"image_url": "/api/character-image", "filename": saved.name}
 
     return app
 

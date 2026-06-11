@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const DEFAULT_SETTINGS = {
+  preset_id: "rena",
   character_name: "黒瀬 怜奈",
   character_prompt:
     "あなたは黒瀬 怜奈。利用者より少し年上の、黒髪ロングで落ち着いた雰囲気の女性。" +
@@ -199,6 +200,39 @@ test("closing the settings panel without changes keeps history and does not save
 
   await expect(page.getByText("設定を保存しました")).toBeHidden();
   await expect(page.getByText("変更なしで閉じる前の発話です", { exact: true })).toBeVisible();
+});
+
+test("switches the character preset and clears conversation history", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByLabel("テキスト入力").fill("プリセット切替前の発話です");
+  await page.getByRole("button", { name: "送信" }).click();
+  await expect(page.getByText("プリセット切替前の発話です", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByLabel("プリセット", { exact: true }).selectOption("koharu");
+  // プリセット選択で下の設定項目がまとめて切り替わる
+  await expect(page.getByLabel("キャラクター名")).toHaveValue("春野 心晴");
+  await expect(page.locator(".chip.on")).toHaveText("フレンドリー");
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
+
+  await expect(page.getByText("設定を保存しました")).toBeVisible();
+  await expect(page.getByText("まだ会話はありません。")).toBeVisible();
+  await expect(page.locator("#character-title")).toHaveText("春野 心晴");
+
+  const settingsResponse = await page.request.get("http://127.0.0.1:8000/api/settings");
+  await expect(settingsResponse).toBeOK();
+  expect((await settingsResponse.json()) as { preset_id: string; speaker_id: string }).toMatchObject({
+    preset_id: "koharu",
+    speaker_id: "koharu",
+  });
+
+  // キャラクター名を編集するとセレクトボックスは「カスタム」表示になる
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByLabel("キャラクター名").fill("心晴ちゃん");
+  await expect(page.getByLabel("プリセット", { exact: true })).toHaveValue("custom");
+  await page.getByRole("button", { name: "設定を閉じる" }).click();
+  await expect(page.locator("#character-title")).toHaveText("心晴ちゃん");
 });
 
 test("saves settings when the panel closes and clears conversation history", async ({ page }) => {

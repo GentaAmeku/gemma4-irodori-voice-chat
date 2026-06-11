@@ -31,6 +31,23 @@ LEGACY_CHARACTER_PROMPT = (
     "過度に露骨な表現は避け、利用者との距離感を近く保つ。"
 )
 
+DEFAULT_READ_ALOUD_PROMPT = (
+    "ハスキーで低めの声の、落ち着いた大人の女性。"
+    "余裕のあるゆっくりした話し方で、感情表現は控えめ。"
+)
+
+KOHARU_CHARACTER_PROMPT = (
+    "あなたは春野 心晴（はるの こはる）。利用者の少し年下の、明るく人懐っこい後輩の女性。"
+    "よく笑い、相手の話を楽しそうに聞く。"
+    "利用者が疲れている・落ち込んでいるときは、明るさを少し抑えて、"
+    "まず共感を1文で返してから、前向きになれる小さな一言を添える。"
+    "口調は自然な日本語。基本は「です・ます」だが堅苦しくせず、"
+    "「〜ですね！」「〜しましょうよ」のようなはずんだ語尾にする。"
+    "先輩を慕う距離の近さを出しつつ、馴れ馴れしくしすぎない。"
+    "説教、上から目線、空回りしたテンション、露骨な甘えは避ける。"
+    "返答は原則1〜3文。"
+)
+
 TONE_PRESET_PROMPTS: dict[TonePreset, str] = {
     "polite": "口調は丁寧。です・ます調を基本にし、落ち着いて礼儀正しく返す。",
     "friendly": "口調はフレンドリー。明るく親しみやすいが、テンションを上げすぎない。",
@@ -40,25 +57,76 @@ TONE_PRESET_PROMPTS: dict[TonePreset, str] = {
 }
 
 
+class CharacterPreset(BaseModel):
+    id: str
+    label: str
+    character_name: str
+    character_prompt: str
+    read_aloud_prompt: str
+    speaker_id: str
+    speech_speed: float
+    tone_preset: TonePreset
+    distance: int
+
+
+RENA_PRESET = CharacterPreset(
+    id="rena",
+    label="黒瀬 怜奈（クールな先輩）",
+    character_name="黒瀬 怜奈",
+    character_prompt=DEFAULT_CHARACTER_PROMPT,
+    read_aloud_prompt=DEFAULT_READ_ALOUD_PROMPT,
+    speaker_id="rena",
+    speech_speed=0.95,
+    tone_preset="senpai",
+    distance=58,
+)
+
+KOHARU_PRESET = CharacterPreset(
+    id="koharu",
+    label="春野 心晴（明るい後輩）",
+    character_name="春野 心晴",
+    character_prompt=KOHARU_CHARACTER_PROMPT,
+    read_aloud_prompt=(
+        "明るく元気な若い女性の声。やや高めで、はずんだ親しみのある話し方。"
+        "笑顔が伝わるような明るいトーン。"
+    ),
+    speaker_id="koharu",
+    speech_speed=1.1,
+    tone_preset="friendly",
+    distance=40,
+)
+
+CHARACTER_PRESETS: list[CharacterPreset] = [RENA_PRESET, KOHARU_PRESET]
+
+
 class AppSettings(BaseModel):
-    character_name: str = Field(default="黒瀬 怜奈", min_length=1, max_length=80)
+    # キャラクタープリセットの選択元。フィールドを個別に編集した場合も、
+    # ベースにしたプリセットのIDを保持し続ける(キャラクター画像の解決に使う)。
+    preset_id: str = Field(
+        default=RENA_PRESET.id,
+        min_length=1,
+        max_length=40,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+    character_name: str = Field(
+        default=RENA_PRESET.character_name, min_length=1, max_length=80
+    )
     character_prompt: str = Field(
-        default=DEFAULT_CHARACTER_PROMPT,
+        default=RENA_PRESET.character_prompt,
         min_length=1,
         max_length=4000,
     )
     read_aloud_prompt: str = Field(
-        default=(
-            "ハスキーで低めの声の、落ち着いた大人の女性。"
-            "余裕のあるゆっくりした話し方で、感情表現は控えめ。"
-        ),
+        default=RENA_PRESET.read_aloud_prompt,
         min_length=1,
         max_length=2000,
     )
-    speaker_id: str = Field(default="none", min_length=1, max_length=120)
-    speech_speed: float = Field(default=0.95, ge=0.25, le=4.0)
-    tone_preset: TonePreset = "senpai"
-    distance: int = Field(default=58, ge=0, le=100)
+    speaker_id: str = Field(
+        default=RENA_PRESET.speaker_id, min_length=1, max_length=120
+    )
+    speech_speed: float = Field(default=RENA_PRESET.speech_speed, ge=0.25, le=4.0)
+    tone_preset: TonePreset = RENA_PRESET.tone_preset
+    distance: int = Field(default=RENA_PRESET.distance, ge=0, le=100)
 
 
 def build_character_system_prompt(settings: AppSettings) -> str:

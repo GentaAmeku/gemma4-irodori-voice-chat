@@ -1,6 +1,13 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { api, ApiError, type AppSettings, type ConversationTurn, type HealthResponse } from "./api";
+  import {
+    api,
+    ApiError,
+    type AppSettings,
+    type CharacterPreset,
+    type ConversationTurn,
+    type HealthResponse,
+  } from "./api";
   import { buildStatusItems, DISPLAY_LABELS, type DisplayState } from "./lib/status";
   import { SYNTHESIZING_HINT_DELAY_MS, type ActiveConversation } from "./lib/conversation-progress";
   import { loadPrefs, savePrefs, TONE_PRESETS } from "./lib/prefs";
@@ -29,6 +36,7 @@
   let health = $state<HealthResponse | null>(null);
   let settings = $state<AppSettings | null>(null);
   let settingsDraft = $state<AppSettings | null>(null);
+  let characterPresets = $state<CharacterPreset[]>([]);
   let turns = $state<DisplayTurn[]>([]);
   let textInput = $state("");
   let errorMessage = $state("");
@@ -42,7 +50,6 @@
   let savingSettings = $state(false);
   let connecting = $state(false);
   let clearingHistory = $state(false);
-  let uploadingImage = $state(false);
   let activeConversation = $state<ActiveConversation | null>(null);
 
   // 音声入力(SpeechRecognition)。未対応ブラウザではマイクを無効化する。
@@ -127,14 +134,17 @@
     statusMessage = "";
     baseUrl = draftBaseUrl.trim().replace(/\/+$/, "") || defaultBaseUrl;
     try {
-      const [nextHealth, nextSettings, history] = await Promise.all([
+      const [nextHealth, nextSettings, history, nextPresets] = await Promise.all([
         api.health(baseUrl),
         api.settings(baseUrl),
         api.history(baseUrl),
+        // キャラクタープリセット未対応の会話サーバーでも接続は成立させる
+        api.presets(baseUrl).catch(() => [] as CharacterPreset[]),
       ]);
       health = nextHealth;
       settings = nextSettings;
       settingsDraft = { ...nextSettings };
+      characterPresets = nextPresets;
       turns = history.turns.map((turn, index) => toDisplayTurn(turn, `history-${index}`));
       imageMissing = false;
       imageVersion = Date.now();
@@ -253,6 +263,9 @@
       if (!settingsOpen) {
         settingsDraft = { ...saved };
       }
+      // キャラクター画像はプリセットに紐づくため、保存後に再取得させる
+      imageMissing = false;
+      imageVersion = Date.now();
       turns = [];
       errorMessage = "";
       statusMessage = "設定を保存しました";
@@ -279,23 +292,6 @@
       errorMessage = formatError(error);
     } finally {
       clearingHistory = false;
-    }
-  }
-
-  async function uploadImage(file: File) {
-    if (uploadingImage) {
-      return;
-    }
-    uploadingImage = true;
-    try {
-      await api.uploadCharacterImage(baseUrl, file);
-      imageMissing = false;
-      imageVersion = Date.now();
-      statusMessage = "キャラクター画像を更新しました";
-    } catch (error) {
-      errorMessage = formatError(error);
-    } finally {
-      uploadingImage = false;
     }
   }
 
@@ -556,6 +552,7 @@
 
   function isSameSettings(a: AppSettings, b: AppSettings): boolean {
     return (
+      a.preset_id === b.preset_id &&
       a.character_name === b.character_name &&
       a.character_prompt === b.character_prompt &&
       a.read_aloud_prompt === b.read_aloud_prompt &&
@@ -712,13 +709,12 @@
   bind:draft={settingsDraft}
   bind:draftBaseUrl
   bind:prefs
+  {characterPresets}
   {statusItems}
   {connectionHelp}
   {connecting}
   {clearingHistory}
-  {uploadingImage}
   onClose={applySettingsOnClose}
   onConnect={connect}
   onClearHistory={clearHistory}
-  onUploadImage={uploadImage}
 />

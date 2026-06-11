@@ -15,6 +15,19 @@ export type HealthResponse = {
 };
 
 export type AppSettings = {
+  preset_id: string;
+  character_name: string;
+  character_prompt: string;
+  read_aloud_prompt: string;
+  speaker_id: string;
+  speech_speed: number;
+  tone_preset: TonePresetId;
+  distance: number;
+};
+
+export type CharacterPreset = {
+  id: string;
+  label: string;
   character_name: string;
   character_prompt: string;
   read_aloud_prompt: string;
@@ -58,7 +71,7 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
   const response = await fetch(`${cleanBaseUrl(baseUrl)}${path}`, {
     ...init,
     headers: {
-      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      "Content-Type": "application/json",
       ...init?.headers,
     },
   });
@@ -76,10 +89,11 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
 }
 
 function normalizeSettings(
-  settings: AppSettings | Partial<Pick<AppSettings, "speech_speed" | "tone_preset" | "distance">>,
+  settings: AppSettings | Partial<Pick<AppSettings, "preset_id" | "speech_speed" | "tone_preset" | "distance">>,
 ): AppSettings {
   return {
     ...(settings as AppSettings),
+    preset_id: "preset_id" in settings && typeof settings.preset_id === "string" ? settings.preset_id : "rena",
     speech_speed:
       "speech_speed" in settings && typeof settings.speech_speed === "number" ? settings.speech_speed : 0.95,
     tone_preset: "tone_preset" in settings && isTonePresetId(settings.tone_preset) ? settings.tone_preset : "senpai",
@@ -99,6 +113,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(settings),
     }).then(normalizeSettings),
+  presets: (baseUrl: string) => request<CharacterPreset[]>(baseUrl, "/api/presets"),
   speakers: (baseUrl: string) => request<SpeakerOption[]>(baseUrl, "/api/speakers"),
   history: (baseUrl: string) => request<HistoryResponse>(baseUrl, "/api/history"),
   clearHistory: (baseUrl: string) =>
@@ -111,14 +126,6 @@ export const api = {
       body: JSON.stringify({ text }),
       signal,
     }),
-  uploadCharacterImage: (baseUrl: string, file: File) => {
-    const body = new FormData();
-    body.append("file", file);
-    return request<{ image_url: string; filename: string }>(baseUrl, "/api/character-image", {
-      method: "POST",
-      body,
-    });
-  },
   absoluteUrl(baseUrl: string, path: string): string {
     if (path.startsWith("http://") || path.startsWith("https://")) {
       return path;

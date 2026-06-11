@@ -4,8 +4,21 @@
     {
       "name": "client",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd client && VITE_GIC_DEFAULT_BASE_URL=http://127.0.0.1:8000 pnpm dev"],
-      "port": 5173
+      "runtimeArgs": [
+        "-c",
+        "cd client && VITE_GIC_DEFAULT_BASE_URL=http://127.0.0.1:8000 pnpm dev --port \"${PORT:-5173}\" --strictPort"
+      ],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "mock-server",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd server && GIC_MOCK_SERVICES=1 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000"
+      ],
+      "port": 8000
     }
   ]
 }

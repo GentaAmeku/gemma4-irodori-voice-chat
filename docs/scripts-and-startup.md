@@ -69,7 +69,7 @@ flowchart LR
 | `start-conversation-server-wsl.sh` | 会話サーバーを **`0.0.0.0:8000`** で起動（LAN 公開して MacBook から届くように）。Ollama ホストを自動解決（後述） |
 | `start-client-wsl.sh` | Web クライアントを WSL 内で起動（`node_modules` がなければ `pnpm install` を自動実行）。**Windows PC 1台で完結する構成**用（Windows のブラウザから `http://localhost:5173` を開く） |
 | `check-wsl-stack.sh` | Ollama / Irodori / 会話サーバーの health とサンプル会話を確認 |
-| `reset-character-defaults.sh` | キャラクター画像・設定をデフォルトへ戻す（`--image-only` / `--settings-only` / `-y`） |
+| `reset-character-defaults.sh` | キャラクター設定（settings.json）をデフォルトへ戻す（`-y` で確認なし） |
 
 ※ Ollama は Windows ネイティブで起動する前提（WSL 側からは呼ぶだけ）。
 

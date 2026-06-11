@@ -12,9 +12,12 @@ from app.config import AppConfig
 from app.main import create_app
 from app.models import (
     AppSettings,
+    CHARACTER_PRESETS,
     ConversationTurn,
     DEFAULT_CHARACTER_PROMPT,
+    KOHARU_PRESET,
     LEGACY_CHARACTER_PROMPT,
+    RENA_PRESET,
     RINON_CHARACTER_PROMPT,
 )
 from app.service import ConversationBusyError, ConversationService, TurnFailedError
@@ -48,12 +51,23 @@ def test_settings_save_load_and_history_clear(tmp_path: Path) -> None:
 def test_default_settings_use_reina_senpai_character() -> None:
     settings = AppSettings()
 
+    assert settings.preset_id == "rena"
     assert settings.character_name == "黒瀬 怜奈"
     assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
     assert settings.read_aloud_prompt.startswith("ハスキーで低めの声の")
+    assert settings.speaker_id == "rena"
     assert settings.speech_speed == 0.95
     assert settings.tone_preset == "senpai"
     assert settings.distance == 58
+
+
+def test_character_presets_expose_rena_and_koharu() -> None:
+    assert [preset.id for preset in CHARACTER_PRESETS] == ["rena", "koharu"]
+    # プリセットIDは話者ID・画像ファイル名と揃える
+    assert RENA_PRESET.speaker_id == "rena"
+    assert KOHARU_PRESET.speaker_id == "koharu"
+    assert KOHARU_PRESET.character_name == "春野 心晴"
+    assert KOHARU_PRESET.tone_preset == "friendly"
 
 
 def test_legacy_default_character_prompt_is_migrated(tmp_path: Path) -> None:
@@ -88,6 +102,20 @@ def test_rinon_default_character_is_migrated(tmp_path: Path) -> None:
     assert settings.distance == 58
 
 
+def test_legacy_none_speaker_with_rena_defaults_is_migrated(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path)
+    store.save(AppSettings(speaker_id="none"))
+
+    assert store.load().speaker_id == "rena"
+
+
+def test_none_speaker_with_custom_settings_is_kept(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path)
+    store.save(AppSettings(speaker_id="none", character_name="カスタム"))
+
+    assert store.load().speaker_id == "none"
+
+
 def test_previous_english_read_aloud_default_is_migrated(tmp_path: Path) -> None:
     store = SettingsStore(tmp_path)
     store.save(
@@ -105,13 +133,70 @@ def test_previous_english_read_aloud_default_is_migrated(tmp_path: Path) -> None
     assert settings.read_aloud_prompt.startswith("ハスキーで低めの声の")
 
 
-def test_character_image_falls_back_to_default_asset(tmp_path: Path) -> None:
+def test_character_image_resolves_per_preset(tmp_path: Path) -> None:
     store = SettingsStore(tmp_path)
 
-    image = store.find_character_image()
+    rena_image = store.find_character_image("rena")
+    koharu_image = store.find_character_image("koharu")
 
-    assert image is not None
-    assert image.name == "default-character-image.png"
+    assert rena_image is not None and rena_image.name == "character-image-rena.png"
+    assert (
+        koharu_image is not None and koharu_image.name == "character-image-koharu.png"
+    )
+    assert store.find_character_image("unknown-preset") is None
+    # パス区切りを含むIDではファイル探索しない
+    assert store.find_character_image("../rena") is None
+
+
+def test_presets_endpoint_returns_character_presets(tmp_path: Path) -> None:
+    app = create_app(
+        AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/presets")
+
+    assert response.status_code == 200
+    presets = response.json()
+    assert [preset["id"] for preset in presets] == ["rena", "koharu"]
+    koharu = presets[1]
+    assert koharu["character_name"] == "春野 心晴"
+    assert koharu["speaker_id"] == "koharu"
+
+
+def test_character_image_endpoint_follows_saved_preset(tmp_path: Path) -> None:
+    app = create_app(
+        AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    )
+
+    with TestClient(app) as client:
+        default_image = client.get("/api/character-image")
+        saved = client.put(
+            "/api/settings",
+            json=KOHARU_PRESET.model_dump(exclude={"id", "label"})
+            | {"preset_id": "koharu"},
+        )
+        koharu_image = client.get("/api/character-image")
+
+    assert default_image.status_code == 200
+    assert saved.status_code == 200
+    assert saved.json()["preset_id"] == "koharu"
+    assert koharu_image.status_code == 200
+    assert koharu_image.content != default_image.content
+
+
+def test_put_settings_rejects_path_like_preset_id(tmp_path: Path) -> None:
+    app = create_app(
+        AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    )
+
+    with TestClient(app) as client:
+        response = client.put(
+            "/api/settings",
+            json=AppSettings().model_dump() | {"preset_id": "../etc"},
+        )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

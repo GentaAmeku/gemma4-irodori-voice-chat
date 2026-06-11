@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AppSettings } from "../api";
+  import type { AppSettings, CharacterPreset } from "../api";
   import type { StatusItem } from "./status";
   import { TONE_PRESETS, type LocalPrefs } from "./prefs";
   import Icon from "./Icon.svelte";
@@ -10,33 +10,30 @@
     draft = $bindable(null),
     draftBaseUrl = $bindable(""),
     prefs = $bindable(),
+    characterPresets = [],
     statusItems,
     connectionHelp,
     connecting = false,
     clearingHistory = false,
-    uploadingImage = false,
     onClose,
     onConnect,
     onClearHistory,
-    onUploadImage,
   }: {
     open?: boolean;
     draft?: AppSettings | null;
     draftBaseUrl?: string;
     prefs: LocalPrefs;
+    characterPresets?: CharacterPreset[];
     statusItems: StatusItem[];
     connectionHelp: string;
     connecting?: boolean;
     clearingHistory?: boolean;
-    uploadingImage?: boolean;
     onClose: () => void;
     onConnect: () => void;
     onClearHistory: () => void;
-    onUploadImage: (file: File) => void;
   } = $props();
 
   let dialogEl: HTMLDialogElement | undefined = $state();
-  let dragOver = $state(false);
 
   const preset = $derived(TONE_PRESETS.find((t) => t.id === draft?.tone_preset) ?? TONE_PRESETS[0]);
   const distanceLabel = $derived(
@@ -44,10 +41,46 @@
   );
   const panelBusyMessage = $derived.by(() => {
     if (connecting) return "接続を確認中です。";
-    if (uploadingImage) return "キャラクター画像をアップロード中です。";
     if (clearingHistory) return "会話履歴をクリア中です。";
     return "";
   });
+
+  // ドラフトがベースのキャラクタープリセットから1項目でも編集されていれば「カスタム」表示にする
+  const characterPresetSelection = $derived.by(() => {
+    if (!draft) {
+      return "custom";
+    }
+    const base = characterPresets.find((p) => p.id === draft.preset_id);
+    return base && matchesCharacterPreset(draft, base) ? base.id : "custom";
+  });
+
+  function matchesCharacterPreset(current: AppSettings, base: CharacterPreset): boolean {
+    return (
+      current.character_name === base.character_name &&
+      current.character_prompt === base.character_prompt &&
+      current.read_aloud_prompt === base.read_aloud_prompt &&
+      current.speaker_id === base.speaker_id &&
+      current.speech_speed === base.speech_speed &&
+      current.tone_preset === base.tone_preset &&
+      current.distance === base.distance
+    );
+  }
+
+  function onCharacterPresetChange(event: Event) {
+    const id = (event.currentTarget as HTMLSelectElement).value;
+    const next = characterPresets.find((p) => p.id === id);
+    if (!next || !draft) {
+      return;
+    }
+    draft.preset_id = next.id;
+    draft.character_name = next.character_name;
+    draft.character_prompt = next.character_prompt;
+    draft.read_aloud_prompt = next.read_aloud_prompt;
+    draft.speaker_id = next.speaker_id;
+    draft.speech_speed = next.speech_speed;
+    draft.tone_preset = next.tone_preset;
+    draft.distance = next.distance;
+  }
 
   $effect(() => {
     if (!dialogEl) {
@@ -76,31 +109,6 @@
       event.clientX <= rect.left + rect.width;
     if (!insideContent) {
       dialogEl.close();
-    }
-  }
-
-  function onFileChange(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    if (uploadingImage) {
-      input.value = "";
-      return;
-    }
-    const file = input.files?.[0];
-    if (file) {
-      onUploadImage(file);
-    }
-    input.value = "";
-  }
-
-  function onDrop(event: DragEvent) {
-    event.preventDefault();
-    dragOver = false;
-    if (uploadingImage) {
-      return;
-    }
-    const file = event.dataTransfer?.files?.[0];
-    if (file) {
-      onUploadImage(file);
     }
   }
 </script>
@@ -135,6 +143,34 @@
         設定を変更してパネルを閉じると保存され、次の会話ターンから反映されます。保存時には会話履歴がクリアされます。
       </div>
 
+      <!-- キャラクタープリセット -->
+      {#if characterPresets.length > 0}
+        <section class="sect">
+          <h3 class="h">キャラクタープリセット</h3>
+          <div class="field-row">
+            <label for="character-preset">プリセット</label>
+            <select
+              id="character-preset"
+              name="character_preset"
+              class="select"
+              value={characterPresetSelection}
+              aria-describedby="character-preset-help"
+              onchange={onCharacterPresetChange}
+            >
+              {#if characterPresetSelection === "custom"}
+                <option value="custom" disabled>カスタム</option>
+              {/if}
+              {#each characterPresets as characterPreset (characterPreset.id)}
+                <option value={characterPreset.id}>{characterPreset.label}</option>
+              {/each}
+            </select>
+            <div id="character-preset-help" class="help">
+              プリセットを選ぶと、キャラクター名・キャラクター設定・読み上げ設定などの下の項目がまとめて切り替わります。項目を編集すると「カスタム」表示になります。
+            </div>
+          </div>
+        </section>
+      {/if}
+
       <!-- キャラクター -->
       <section class="sect">
         <h3 class="h">キャラクター</h3>
@@ -149,36 +185,6 @@
             required
           />
           <div id="character-name-help" class="help">会話画面と発話待機表示に使う名前です。</div>
-        </div>
-        <div class="field-row">
-          <span class="field-label" id="character-image-label">キャラクター画像</span>
-          <label
-            class="dropzone"
-            class:over={dragOver}
-            class:disabled={uploadingImage}
-            aria-disabled={uploadingImage}
-            aria-describedby="character-image-help"
-            ondragover={(event) => {
-              event.preventDefault();
-              if (!uploadingImage) {
-                dragOver = true;
-              }
-            }}
-            ondragleave={() => (dragOver = false)}
-            ondrop={onDrop}
-          >
-            {uploadingImage ? "アップロード中…" : "画像をドラッグ、またはクリックして選択"}
-            <input
-              type="file"
-              name="character_image"
-              class="visually-hidden"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
-              aria-labelledby="character-image-label"
-              disabled={uploadingImage}
-              onchange={onFileChange}
-            />
-          </label>
-          <div id="character-image-help" class="help">PNG、JPEG、WebP、SVGをアップロードできます。</div>
         </div>
       </section>
 

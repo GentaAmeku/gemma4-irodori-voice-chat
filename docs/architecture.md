@@ -151,7 +151,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    ep["FastAPI エンドポイント (main.py)<br/>/api/health, /api/settings,<br/>/api/turns/text, /api/history,<br/>/api/character-image"]
+    ep["FastAPI エンドポイント (main.py)<br/>/api/health, /api/settings, /api/presets,<br/>/api/turns/text, /api/history,<br/>/api/character-image"]
     svc["ConversationService (service.py)<br/>busy制御 / 合成 / 段階別エラー"]
     oa["OllamaClient (adapters.py)"]
     ta["IrodoriTtsClient (adapters.py)"]
@@ -164,7 +164,7 @@ flowchart TB
 ```
 
 - **アダプタ方式**: 外部サービス（Ollama / Irodori-TTS）ごとにクライアントクラスを分け、`mock_services=1` でモック化できる（テスト・UI 確認用）。
-- **状態**: 会話履歴は MVP ではメモリ保持。設定とキャラクター画像・生成音声はファイル。
+- **状態**: 会話履歴は MVP ではメモリ保持。設定と生成音声はファイル。キャラクター画像はキャラクタープリセットに紐づく同梱アセット（`server/app/assets/character-image-{preset_id}.png`）。
 - **設定は環境変数で上書き**（`GIC_OLLAMA_BASE_URL` / `GIC_TTS_BASE_URL` / `GIC_OLLAMA_MODEL` / `GIC_TTS_SEED` など、[config.py](../server/app/config.py)）。
 
 ---
