@@ -53,7 +53,17 @@ scripts/generate-voicedesign-sample.sh --caption "低くかすれた声の、物
 ## 登録と切替
 
 1. 候補を試聴し、一番イメージに近いwavを選ぶ。
-2. 参照音声として登録する([Reference Voice Setup](./reference-voice-setup.md)の登録方法A):
+2. 新規音声として登録する。Irodori-TTS-Serverをクローンし直しても消えないよう、このリポジトリの `assets/voices/` にコミットして永続化するのが推奨([Reference Voice Setup](./reference-voice-setup.md)の登録方法D):
+
+   ```bash
+   cp /path/to/picked.wav assets/voices/husky-mature.wav
+   git add assets/voices/husky-mature.wav
+   git commit -m "feat(voices): add husky-mature reference voice"
+   git push
+   ./scripts/wsl/setup-irodori-wsl-amd.sh   # voices/ へ配置(セットアップ済みならコピーのみ)
+   ```
+
+   配置後にIrodori-TTS-Serverを再起動する。すぐ試したいだけの場合は、会話サーバー経由で直接登録してもよい(登録方法A。ただしクローンし直すと消える):
 
    ```bash
    SERVER_BASE_URL=http://127.0.0.1:8000 \

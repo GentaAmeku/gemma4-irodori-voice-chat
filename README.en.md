@@ -135,7 +135,7 @@ All documents are written in Japanese.
 | [Verification Guide](./docs/verification.md) | Verifying the app across the LAN |
 | [Tauri Setup](./docs/tauri-setup.md) | Desktop app scaffold |
 | [No-Reference Voice Setup](./docs/no-ref-voice-setup.md) | Tuning the default voice (`speaker_id: "none"`) |
-| [Reference Voice Setup](./docs/reference-voice-setup.md) / [VoiceDesign Sample Setup](./docs/voicedesign-sample-setup.md) | Reference voice registration and generation (post-MVP) |
+| [Reference Voice Setup](./docs/reference-voice-setup.md) / [VoiceDesign Sample Setup](./docs/voicedesign-sample-setup.md) | Registering a new voice (adding reference audio) and generating voices with VoiceDesign |
 | [ADR](./docs/adr/) | Architecture decision records (thin client / LAN-only / Svelte) |
 | [Context Glossary](./CONTEXT.md) | Ubiquitous language glossary |
 | [AGENTS.md](./AGENTS.md) | Shared working guide for coding agents |

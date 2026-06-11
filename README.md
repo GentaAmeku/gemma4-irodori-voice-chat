@@ -133,7 +133,7 @@ git config core.hooksPath .githooks
 | [Verification Guide](./docs/verification.md) | LAN越しの動作確認手順 |
 | [Tauri Setup](./docs/tauri-setup.md) | デスクトップアプリ化の足場 |
 | [No-Reference Voice Setup](./docs/no-ref-voice-setup.md) | 既定の読み上げ声質（`speaker_id: "none"`）の調整 |
-| [Reference Voice Setup](./docs/reference-voice-setup.md) / [VoiceDesign Sample Setup](./docs/voicedesign-sample-setup.md) | 参照音声の登録・生成（MVP外の将来機能） |
+| [Reference Voice Setup](./docs/reference-voice-setup.md) / [VoiceDesign Sample Setup](./docs/voicedesign-sample-setup.md) | 新規音声の登録（参照音声の追加）・VoiceDesign での音声生成 |
 | [ADR](./docs/adr/) | 設計判断の記録（thin client / LAN-only / Svelte） |
 | [Context Glossary](./CONTEXT.md) | 用語集（ユビキタス言語） |
 | [AGENTS.md](./AGENTS.md) | コーディングエージェント共通の作業ガイド |
