@@ -76,6 +76,18 @@ curl http://<desktop-pc-lan-ip>:8000/api/health
 
 WSL2 NAT構成でMacBookから届かない場合は、Windows側でportproxyまたはWSL mirrored networkingを設定します。手順は [WSL AMD Setup](./wsl-amd-setup.md) の「MacBookからdesktop PCへ接続する」を参照してください。
 
+標準の復旧コマンド:
+
+```powershell
+.\scripts\windows\check-lan-portproxy.ps1 -LanIp <desktop-pc-lan-ip>
+```
+
+`127.0.0.1:8000` は成功するのに `<desktop-pc-lan-ip>:8000` が失敗する場合は、管理者 PowerShell で更新します。
+
+```powershell
+.\scripts\windows\refresh-wsl-portproxy.ps1 -LanIp <desktop-pc-lan-ip>
+```
+
 ## 3. MacBook側クライアント起動
 
 MacBook側でこのリポジトリを開きます。
@@ -178,11 +190,7 @@ Optionsを開きます。
 desktop PCのPowerShellで `127.0.0.1:8000` は成功するのに `<desktop-pc-lan-ip>:8000` が失敗する場合は、WSLではなくWindows側のLAN公開設定を確認します。
 
 ```powershell
-curl.exe http://127.0.0.1:8000/api/health
-curl.exe http://<desktop-pc-lan-ip>:8000/api/health
-netsh interface portproxy show v4tov4
-Get-Service iphlpsvc
-Get-NetConnectionProfile
+.\scripts\windows\check-lan-portproxy.ps1 -LanIp <desktop-pc-lan-ip>
 ```
 
 ### UIでOllamaだけ要確認になる

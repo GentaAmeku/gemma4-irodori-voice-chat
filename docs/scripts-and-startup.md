@@ -36,6 +36,7 @@ flowchart LR
 - 役割（接頭辞）
   - `setup-irodori-*` … Irodori-TTS-Server を **一度だけ** 用意（clone + `uv sync`）
   - `start-inference-stack-*` … **Ollama + Irodori をまとめてバックグラウンド起動**
+  - `start-desktop-stack` … デスクトップ PC / WSL 標準構成を **日常用に一括起動**
   - `start-irodori-*` … Irodori だけを前面起動
   - `start-conversation-server-*` … **このアプリの会話サーバー(8000)を起動**
   - `start-client-mac` … Web クライアント(5173)を起動
@@ -62,11 +63,20 @@ flowchart LR
 | スクリプト | 何をするか |
 |---|---|
 | `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server` を clone し `uv sync --extra rocm`（AMD GPU） |
+| `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。日常起動の推奨入口 |
 | `start-irodori-wsl-amd.sh` | Irodori を `rocm` で起動（`0.0.0.0:8088`） |
 | `start-conversation-server-wsl.sh` | 会話サーバーを **`0.0.0.0:8000`** で起動（LAN 公開して MacBook から届くように）。Ollama ホストを自動解決（後述） |
 | `check-wsl-stack.sh` | Ollama / Irodori / 会話サーバーの health とサンプル会話を確認 |
 
 ※ Ollama は Windows ネイティブで起動する前提（WSL 側からは呼ぶだけ）。
+
+### Windows LAN 公開補助（`scripts/windows/`）
+
+| スクリプト | 何をするか |
+|---|---|
+| `install-portproxy-refresh-task.ps1` | 管理者 PowerShell で一度だけ実行。WSL から起動できる portproxy refresh タスクを登録 |
+| `refresh-wsl-portproxy.ps1` | 現在の WSL IP を取得し、`iphlpsvc` / `netsh interface portproxy` / Firewall ルールを更新 |
+| `check-lan-portproxy.ps1` | `iphlpsvc`、ネットワークプロファイル、Firewall、portproxy、LAN health を診断 |
 
 ### 汎用 Linux / AMD（`scripts/` 直下）
 
@@ -152,11 +162,13 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```text
 1. (Windows) Ollama を起動し、gemma4:12b を pull 済みにする
 2. (WSL・初回のみ) ./scripts/wsl/setup-irodori-wsl-amd.sh
-3. (WSL) ./scripts/wsl/start-irodori-wsl-amd.sh        # 前面
-4. (WSL・別ターミナル) ./scripts/wsl/start-conversation-server-wsl.sh   # 0.0.0.0:8000 前面
+3. (Windows・初回のみ/管理者 PowerShell) .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <デスクトップのIP>
+4. (WSL) ./scripts/wsl/start-desktop-stack.sh
 5. (Mac) クライアントの接続先を http://<デスクトップのIP>:8000 にする
 6. (任意) ./scripts/wsl/check-wsl-stack.sh で確認
 ```
+
+`start-desktop-stack.sh` は Irodori をバックグラウンド起動し、会話サーバーを起動します。会話サーバーのログを表示し続けるため、止めるときはそのターミナルで `Ctrl-C` します。Irodori はバックグラウンドに残るので、完全に止めたい場合は `.logs/irodori-wsl.pid` の PID を終了します。
 
 ### MacBook 単体（開発）
 
@@ -177,7 +189,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 うまくいかないとき:
 
 - **会話サーバーは起動するが返答が来ない** → `GIC_OLLAMA_BASE_URL` / `GIC_TTS_BASE_URL` が正しいか、その先（Ollama/Irodori）が起動しているか。会話サーバーは失敗を原因別コード（`llm_unavailable` / `tts_timeout` 等）で返し、`gic.conversation` ロガーに警告を出します（[Architecture Overview](./architecture.md) の失敗コード表）。
-- **MacBook からデスクトップの 8000 に届かない** → 会話サーバーが `0.0.0.0` で起動しているか、Windows ファイアウォール / WSL のポート公開。詳細は [WSL AMD Setup](./wsl-amd-setup.md)。
+- **MacBook からデスクトップの 8000 に届かない** → まず Windows PowerShell で `.\scripts\windows\check-lan-portproxy.ps1 -LanIp <デスクトップのIP>`。必要なら管理者 PowerShell で `.\scripts\windows\refresh-wsl-portproxy.ps1 -LanIp <デスクトップのIP>`。詳細は [WSL AMD Setup](./wsl-amd-setup.md)。
 - **WSL から Ollama に届かない** → `OLLAMA_HOST` を Windows ホストの IP で明示。
 - **Mac で初回の読み上げが遅い** → 仕様（モデルロード）。会話サーバーは `GIC_REQUEST_TIMEOUT_SECONDS=600` で待つ。
 

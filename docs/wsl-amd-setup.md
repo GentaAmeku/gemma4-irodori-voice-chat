@@ -342,23 +342,18 @@ MacBook
 
 WSL2の既定NAT構成では、LAN内の別端末からWSL上のサーバーへ直接届かないことがあります。その場合は、Windows 11 22H2以降ならWSL mirrored networkingを使うか、Windows側でportproxyを設定します。
 
-portproxyを使う例:
+標準運用では、管理者 PowerShell で一度だけ portproxy refresh タスクを登録します。
 
 ```powershell
-$LanIp = "192.168.3.2"
-$WslIp = (wsl -d Ubuntu-24.04 hostname -I).Trim().Split(" ")[0]
+.\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp 192.168.3.2
+```
 
-netsh interface portproxy delete v4tov4 listenaddress=$LanIp listenport=8000
-netsh interface portproxy add v4tov4 listenaddress=$LanIp listenport=8000 connectaddress=$WslIp connectport=8000
+以後、日常起動の `./scripts/wsl/start-desktop-stack.sh` がこのタスクを呼び、現在の WSL IP へ portproxy を更新します。
 
-New-NetFirewallRule `
-  -DisplayName "Gemma4 Irodori Chat API 8000" `
-  -Direction Inbound `
-  -Action Allow `
-  -Protocol TCP `
-  -LocalAddress $LanIp `
-  -LocalPort 8000 `
-  -Profile Private
+手動で更新する場合:
+
+```powershell
+.\scripts\windows\refresh-wsl-portproxy.ps1 -LanIp 192.168.3.2
 ```
 
 設定後に、desktop PCのPowerShellでLAN IP宛てに確認します。
@@ -369,6 +364,12 @@ curl.exe http://192.168.3.2:8000/api/health
 ```
 
 `portproxy show v4tov4` の転送先は、`172.x.x.x` のようなWSLのIPv4になっている必要があります。文字化けした値や空の値が出る場合は、`hostname -I` の結果からWSL IPv4を手で確認し、`$WslIp` に直接入れて作り直してください。
+
+診断だけ行う場合:
+
+```powershell
+.\scripts\windows\check-lan-portproxy.ps1 -LanIp 192.168.3.2
+```
 
 MacBookから疎通確認:
 
@@ -388,21 +389,21 @@ Windows PowerShell:
 ollama list
 ```
 
-WSL Ubuntu ターミナル 1:
+WSL Ubuntu:
 
 ```bash
 cd ~/ghq/gemma4-irodori-voice-chat
-./scripts/wsl/start-irodori-wsl-amd.sh
+./scripts/wsl/start-desktop-stack.sh
 ```
 
-WSL Ubuntu ターミナル 2:
+`start-desktop-stack.sh` は Irodori-TTS-Server を必要時だけバックグラウンド起動し、Windows portproxy refresh タスクを呼び、会話サーバーを `0.0.0.0:8000` で起動します。止めるときは `Ctrl-C` で会話サーバーを止めます。Irodori だけを個別に確認したい場合は、従来通り次の個別スクリプトも使えます。
 
 ```bash
-cd ~/ghq/gemma4-irodori-voice-chat
+./scripts/wsl/start-irodori-wsl-amd.sh
 ./scripts/wsl/start-conversation-server-wsl.sh
 ```
 
-WSL Ubuntu ターミナル 3:
+WSL Ubuntu（クライアントもWindows/WSL側で起動する場合）:
 
 ```bash
 cd ~/ghq/gemma4-irodori-voice-chat/client
