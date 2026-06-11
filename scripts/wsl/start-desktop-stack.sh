@@ -97,19 +97,86 @@ powershell_is_elevated() {
     powershell.exe -NoProfile -Command "\$identity = [Security.Principal.WindowsIdentity]::GetCurrent(); \$principal = [Security.Principal.WindowsPrincipal]::new(\$identity); if (\$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 0 } else { exit 1 }" >/dev/null 2>&1
 }
 
+sync_windows_portproxy_scripts() {
+  local windows_dir
+  windows_dir="$(run_powershell "[System.IO.Path]::Combine(\$env:LOCALAPPDATA, 'Gemma4IrodoriChat', 'scripts')" | awk 'NF { print; exit }')"
+  if [ -z "$windows_dir" ]; then
+    echo "警告: Windows 側のスクリプト配置先を解決できませんでした。" >&2
+    return 1
+  fi
+
+  local wsl_dir
+  wsl_dir="$(wslpath -u "$windows_dir")"
+  mkdir -p "$wsl_dir"
+  cp "$ROOT_DIR/scripts/windows/install-portproxy-refresh-task.ps1" "$wsl_dir/install-portproxy-refresh-task.ps1"
+  cp "$ROOT_DIR/scripts/windows/refresh-wsl-portproxy.ps1" "$wsl_dir/refresh-wsl-portproxy.ps1"
+
+  echo "$windows_dir"
+}
+
+write_portproxy_install_wrapper() {
+  local windows_dir="$1"
+  local lan_ip="$2"
+  local wsl_dir
+  wsl_dir="$(wslpath -u "$windows_dir")"
+
+  local wrapper_path="$wsl_dir/install-portproxy-task-wrapper.ps1"
+  {
+    printf '$ErrorActionPreference = "Stop"\n'
+    printf '$ExitCode = 0\n'
+    printf '$LogDir = Join-Path $env:LOCALAPPDATA "Gemma4IrodoriChat\\logs"\n'
+    printf 'New-Item -ItemType Directory -Force -Path $LogDir | Out-Null\n'
+    printf '$LogPath = Join-Path $LogDir "install-portproxy-task.log"\n'
+    printf 'Start-Transcript -Path $LogPath -Force | Out-Null\n'
+    printf 'try {\n'
+    printf '  Write-Host "Installing Gemma4 Irodori Chat portproxy task..."\n'
+    printf '  & "%s\\install-portproxy-refresh-task.ps1" -Port %s -TaskName "%s"' "$windows_dir" "$GIC_APP_PORT" "$WINDOWS_PORTPROXY_TASK"
+    if [ -n "$lan_ip" ]; then
+      printf ' -LanIp "%s"' "$lan_ip"
+    fi
+    printf '\n'
+    printf '  Write-Host ""\n'
+    printf '  Write-Host "OK: portproxy task installation finished."\n'
+    printf '}\n'
+    printf 'catch {\n'
+    printf '  $ExitCode = 1\n'
+    printf '  Write-Host ""\n'
+    printf '  Write-Host "ERROR: portproxy task installation failed."\n'
+    printf '  Write-Host $_.Exception.Message\n'
+    printf '}\n'
+    printf 'finally {\n'
+    printf '  Write-Host ""\n'
+    printf '  Write-Host "Log: $LogPath"\n'
+    printf '  try { Stop-Transcript | Out-Null } catch { }\n'
+    printf '  Write-Host ""\n'
+    printf '  Read-Host "Press Enter to close this window"\n'
+    printf '}\n'
+    printf 'exit $ExitCode\n'
+  } >"$wrapper_path"
+
+  echo "$windows_dir\\install-portproxy-task-wrapper.ps1"
+}
+
 install_portproxy_task_elevated() {
   local lan_ip="$1"
-  local install_script
-  install_script="$(wslpath -w "$ROOT_DIR/scripts/windows/install-portproxy-refresh-task.ps1")"
 
   echo "情報: Windows portproxy 更新タスクが未登録です。"
+  echo "情報: 昇格 PowerShell から確実に読めるよう、Windows 側へ portproxy スクリプトを同期します。"
+
+  local windows_script_dir
+  if ! windows_script_dir="$(sync_windows_portproxy_scripts)"; then
+    echo "警告: Windows 側への portproxy スクリプト同期に失敗しました。" >&2
+    return 1
+  fi
+
+  local wrapper_script
+  wrapper_script="$(write_portproxy_install_wrapper "$windows_script_dir" "$lan_ip")"
+
   echo "情報: 初回登録のため、Windows の UAC 昇格ダイアログを開きます。"
+  echo "情報: 昇格 PowerShell は完了後に Enter 入力待ちになります。表示内容を確認してください。"
 
   local ps_command
-  ps_command="\$arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '$install_script', '-Port', '$GIC_APP_PORT', '-TaskName', '$WINDOWS_PORTPROXY_TASK')"
-  if [ -n "$lan_ip" ]; then
-    ps_command="$ps_command; \$arguments += @('-LanIp', '$lan_ip')"
-  fi
+  ps_command="\$arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '$wrapper_script')"
   ps_command="$ps_command; \$process = Start-Process -FilePath 'powershell.exe' -ArgumentList \$arguments -Verb RunAs -Wait -PassThru; exit \$process.ExitCode"
 
   if ! run_powershell "$ps_command" >/dev/null; then
@@ -159,6 +226,7 @@ refresh_windows_portproxy() {
   fi
 
   if task_exists; then
+    sync_windows_portproxy_scripts >/dev/null || true
     echo "情報: Windows portproxy を登録済みタスク経由で更新します。"
     if ! run_powershell "Start-ScheduledTask -TaskName '$WINDOWS_PORTPROXY_TASK'" >/dev/null; then
       PORTPROXY_STATUS="失敗（登録済みタスクを開始できません）"
@@ -208,8 +276,15 @@ EOF
     return 1
   fi
 
+  local windows_script_dir
+  if ! windows_script_dir="$(sync_windows_portproxy_scripts)"; then
+    PORTPROXY_STATUS="失敗（Windows 側へのスクリプト同期に失敗）"
+    echo "警告: Windows 側への portproxy スクリプト同期に失敗しました。" >&2
+    return 1
+  fi
+
   local refresh_script
-  refresh_script="$(wslpath -w "$ROOT_DIR/scripts/windows/refresh-wsl-portproxy.ps1")"
+  refresh_script="$windows_script_dir\\refresh-wsl-portproxy.ps1"
   local command="& '$refresh_script' -Port $GIC_APP_PORT -SkipHealthCheck"
   if [ -n "$lan_ip" ]; then
     command="$command -LanIp '$lan_ip'"
