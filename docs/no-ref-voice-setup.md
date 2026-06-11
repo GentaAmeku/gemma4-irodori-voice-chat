@@ -8,7 +8,7 @@ MVPでは、Irodori-TTS-Serverの参照音声登録を使わず、`speaker_id: "
 - Webクライアントに話者選択UIは表示しない。
 - 会話サーバーは読み上げ時に `voice.id` として `none` を送る。
 - `speech_speed` はIrodori speech requestの `speed` へ送る。
-- `read_aloud_prompt` は将来用メタデータで、現行speech endpointには直接渡さない。
+- `read_aloud_prompt` はspeech requestの `irodori.caption` として送る。VoiceDesign対応チェックポイントでのみ声質指示として効き、500M-v3など非対応チェックポイントでは無視される。
 - `/api/speakers` が `none` のみでもMVPでは正常扱い。
 
 ## 確認方法

@@ -131,10 +131,18 @@ class IrodoriTtsClient:
             "response_format": self.config.tts_response_format,
             "speed": settings.speech_speed,
         }
+        irodori_options: dict[str, object] = {}
         # 固定シードを渡すと、no_ref読み上げが長文でチャンク分割されても、
         # またターンをまたいでも、同じ声質で生成される。
         if self.config.tts_seed is not None:
-            payload["irodori"] = {"seed": self.config.tts_seed}
+            irodori_options["seed"] = self.config.tts_seed
+        # VoiceDesign対応チェックポイントでは読み上げ設定が声質指示(caption)として効く。
+        # caption非対応のチェックポイント(500M-v3など)では無視される。
+        caption = settings.read_aloud_prompt.strip()
+        if caption:
+            irodori_options["caption"] = caption
+        if irodori_options:
+            payload["irodori"] = irodori_options
 
         response = await self.http.post(
             f"{self.config.tts_base_url}/v1/audio/speech",

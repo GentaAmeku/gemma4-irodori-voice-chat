@@ -39,7 +39,7 @@ def test_default_settings_use_reina_senpai_character() -> None:
 
     assert settings.character_name == "黒瀬 怜奈"
     assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
-    assert settings.read_aloud_prompt.startswith("Native Japanese mature young woman")
+    assert settings.read_aloud_prompt.startswith("ハスキーで低めの声の")
     assert settings.speech_speed == 0.95
     assert settings.tone_preset == "senpai"
     assert settings.distance == 58
@@ -71,10 +71,27 @@ def test_rinon_default_character_is_migrated(tmp_path: Path) -> None:
 
     assert settings.character_name == "黒瀬 怜奈"
     assert settings.character_prompt == DEFAULT_CHARACTER_PROMPT
-    assert settings.read_aloud_prompt.startswith("Native Japanese mature young woman")
+    assert settings.read_aloud_prompt.startswith("ハスキーで低めの声の")
     assert settings.speech_speed == 0.95
     assert settings.tone_preset == "senpai"
     assert settings.distance == 58
+
+
+def test_previous_english_read_aloud_default_is_migrated(tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path)
+    store.save(
+        AppSettings(
+            read_aloud_prompt=(
+                "Native Japanese mature young woman, cool composed voice, low-to-mid pitch, "
+                "calm and slightly slow pacing, clear pronunciation, subtle warmth, "
+                "elegant senpai tone, restrained emotion."
+            ),
+        )
+    )
+
+    settings = store.load()
+
+    assert settings.read_aloud_prompt.startswith("ハスキーで低めの声の")
 
 
 def test_character_image_falls_back_to_default_asset(tmp_path: Path) -> None:
@@ -112,8 +129,9 @@ async def test_tts_request_includes_selected_speaker_and_speed(tmp_path: Path) -
     assert output.read_bytes() == b"RIFF"
     assert captured_json["voice"] == {"id": "rinon"}
     assert captured_json["speed"] == 1.15
-    # 固定シードでチャンク・ターンをまたいで声質を一貫させる
-    assert captured_json["irodori"] == {"seed": 1234567}
+    # 固定シードでチャンク・ターンをまたいで声質を一貫させる。
+    # 読み上げ設定はVoiceDesign向けのcaptionとして送る。
+    assert captured_json["irodori"] == {"seed": 1234567, "caption": "clear"}
 
 
 @pytest.mark.asyncio
@@ -135,6 +153,31 @@ async def test_tts_request_omits_seed_when_disabled(tmp_path: Path) -> None:
     async with httpx.AsyncClient(transport=transport) as http_client:
         client = IrodoriTtsClient(config, http_client)
         settings = AppSettings(speaker_id="none")
+        await client.synthesize("こんにちは。", settings)
+
+    assert "seed" not in captured_json["irodori"]
+    assert captured_json["irodori"]["caption"] == AppSettings().read_aloud_prompt
+
+
+@pytest.mark.asyncio
+async def test_tts_request_omits_irodori_when_seed_disabled_and_caption_blank(tmp_path: Path) -> None:
+    captured_json: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_json
+        captured_json = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, content=b"RIFF")
+
+    config = AppConfig(
+        mock_services=False,
+        data_dir=tmp_path,
+        audio_dir=tmp_path / "audio",
+        tts_seed=None,
+    )
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        client = IrodoriTtsClient(config, http_client)
+        settings = AppSettings(speaker_id="none", read_aloud_prompt=" ")
         await client.synthesize("こんにちは。", settings)
 
     assert "irodori" not in captured_json

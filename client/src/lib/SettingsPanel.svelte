@@ -257,7 +257,7 @@
             required
           ></textarea>
           <div id="voice-prompt-help" class="help">
-            声・話し方の指針。将来のための設定で、現在の読み上げには直接使われません。
+            声・話し方の指針。読み上げ時に caption としてIrodori-TTS-Serverへ送られます（VoiceDesign対応モデルで有効）。
           </div>
         </div>
 

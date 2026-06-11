@@ -49,9 +49,8 @@ class AppSettings(BaseModel):
     )
     read_aloud_prompt: str = Field(
         default=(
-            "Native Japanese mature young woman, cool composed voice, low-to-mid pitch, "
-            "calm and slightly slow pacing, clear pronunciation, subtle warmth, "
-            "elegant senpai tone, restrained emotion."
+            "ハスキーで低めの声の、落ち着いた大人の女性。"
+            "余裕のあるゆっくりした話し方で、感情表現は控えめ。"
         ),
         min_length=1,
         max_length=2000,

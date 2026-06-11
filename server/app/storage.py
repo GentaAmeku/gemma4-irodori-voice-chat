@@ -11,6 +11,9 @@ DEFAULT_CHARACTER_IMAGE_PATH = Path(__file__).parent / "assets" / "default-chara
 OLD_READ_ALOUD_PROMPTS = {
     "Native Japanese young adult woman, warm conversational voice.",
     "Native Japanese young adult woman, warm conversational voice, clear pronunciation, gentle emotional nuance.",
+    "Native Japanese mature young woman, cool composed voice, low-to-mid pitch, "
+    "calm and slightly slow pacing, clear pronunciation, subtle warmth, "
+    "elegant senpai tone, restrained emotion.",
 }
 OLD_DEFAULT_CHARACTER_NAMES = {"リノン"}
 OLD_DEFAULT_CHARACTER_PROMPTS = {LEGACY_CHARACTER_PROMPT, RINON_CHARACTER_PROMPT}
