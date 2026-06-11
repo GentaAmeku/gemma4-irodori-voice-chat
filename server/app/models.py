@@ -66,7 +66,9 @@ def build_character_system_prompt(settings: AppSettings) -> str:
     if settings.distance <= 33:
         distance_prompt = "距離感は丁寧寄り。敬語を多めにし、踏み込みすぎない。"
     elif settings.distance >= 67:
-        distance_prompt = "距離感は親しい寄り。くだけた表現を使ってよいが、馴れ馴れしくしすぎない。"
+        distance_prompt = (
+            "距離感は親しい寄り。くだけた表現を使ってよいが、馴れ馴れしくしすぎない。"
+        )
 
     return "\n".join(
         [

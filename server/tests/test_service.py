@@ -10,7 +10,13 @@ from fastapi.testclient import TestClient
 from app.adapters import IrodoriTtsClient, OllamaClient
 from app.config import AppConfig
 from app.main import create_app
-from app.models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT, RINON_CHARACTER_PROMPT
+from app.models import (
+    AppSettings,
+    ConversationTurn,
+    DEFAULT_CHARACTER_PROMPT,
+    LEGACY_CHARACTER_PROMPT,
+    RINON_CHARACTER_PROMPT,
+)
 from app.service import ConversationBusyError, ConversationService, TurnFailedError
 from app.storage import ConversationHistory, SettingsStore
 
@@ -19,7 +25,12 @@ def test_settings_save_load_and_history_clear(tmp_path: Path) -> None:
     store = SettingsStore(tmp_path)
     history = ConversationHistory()
 
-    settings = AppSettings(character_name="テスト", character_prompt="短く返す", read_aloud_prompt="clear", speaker_id="none")
+    settings = AppSettings(
+        character_name="テスト",
+        character_prompt="短く返す",
+        read_aloud_prompt="clear",
+        speaker_id="none",
+    )
     store.save(settings)
     history.add(
         ConversationTurn(
@@ -112,7 +123,9 @@ async def test_tts_request_includes_selected_speaker_and_speed(tmp_path: Path) -
         captured_json = json.loads(request.content.decode("utf-8"))
         return httpx.Response(200, content=b"RIFF")
 
-    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    config = AppConfig(
+        mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         client = IrodoriTtsClient(config, http_client)
@@ -160,7 +173,9 @@ async def test_tts_request_omits_seed_when_disabled(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_tts_request_omits_irodori_when_seed_disabled_and_caption_blank(tmp_path: Path) -> None:
+async def test_tts_request_omits_irodori_when_seed_disabled_and_caption_blank(
+    tmp_path: Path,
+) -> None:
     captured_json: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -192,7 +207,9 @@ async def test_ollama_request_includes_tone_and_distance_prompt(tmp_path: Path) 
         captured_json = json.loads(request.content.decode("utf-8"))
         return httpx.Response(200, json={"message": {"content": "返答です。"}})
 
-    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    config = AppConfig(
+        mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         response = await OllamaClient(config, http_client).chat(
@@ -232,7 +249,9 @@ async def test_speakers_parses_irodori_voice_list(tmp_path: Path) -> None:
             },
         )
 
-    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    config = AppConfig(
+        mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         speakers = await IrodoriTtsClient(config, http_client).speakers()
@@ -253,7 +272,9 @@ async def test_register_voice_posts_multipart_to_irodori(tmp_path: Path) -> None
             return httpx.Response(200, json={"data": [{"id": "none"}, {"id": "rinon"}]})
         return httpx.Response(404)
 
-    config = AppConfig(mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    config = AppConfig(
+        mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         speakers = await IrodoriTtsClient(config, http_client).register_voice(
@@ -273,7 +294,9 @@ async def test_register_voice_posts_multipart_to_irodori(tmp_path: Path) -> None
 
 
 def test_register_speaker_endpoint_with_mock_services(tmp_path: Path) -> None:
-    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
+    app = create_app(
+        AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    )
 
     with TestClient(app) as client:
         response = client.post(
@@ -282,11 +305,16 @@ def test_register_speaker_endpoint_with_mock_services(tmp_path: Path) -> None:
         )
 
     assert response.status_code == 200
-    assert response.json() == [{"id": "none", "label": "none"}, {"id": "rinon", "label": "rinon"}]
+    assert response.json() == [
+        {"id": "none", "label": "none"},
+        {"id": "rinon", "label": "rinon"},
+    ]
 
 
 def test_register_speaker_endpoint_rejects_invalid_input(tmp_path: Path) -> None:
-    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
+    app = create_app(
+        AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    )
 
     with TestClient(app) as client:
         invalid_id = client.post(
@@ -306,7 +334,9 @@ def test_register_speaker_endpoint_rejects_invalid_input(tmp_path: Path) -> None
 
 @pytest.mark.asyncio
 async def test_text_turn_adds_history_with_mock_services(tmp_path: Path) -> None:
-    config = AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    config = AppConfig(
+        mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
     async with httpx.AsyncClient() as http_client:
         store = SettingsStore(tmp_path)
         history = ConversationHistory()
@@ -371,7 +401,9 @@ async def test_turn_maps_tts_unavailable(tmp_path: Path) -> None:
 
 
 def test_text_turn_endpoint_maps_turn_failure(tmp_path: Path) -> None:
-    app = create_app(AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio"))
+    app = create_app(
+        AppConfig(mock_services=True, data_dir=tmp_path, audio_dir=tmp_path / "audio")
+    )
 
     class FailingService:
         async def text_turn(self, text: str):

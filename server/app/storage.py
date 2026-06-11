@@ -4,10 +4,18 @@ from pathlib import Path
 import json
 import shutil
 
-from .models import AppSettings, ConversationTurn, DEFAULT_CHARACTER_PROMPT, LEGACY_CHARACTER_PROMPT, RINON_CHARACTER_PROMPT
+from .models import (
+    AppSettings,
+    ConversationTurn,
+    DEFAULT_CHARACTER_PROMPT,
+    LEGACY_CHARACTER_PROMPT,
+    RINON_CHARACTER_PROMPT,
+)
 
 
-DEFAULT_CHARACTER_IMAGE_PATH = Path(__file__).parent / "assets" / "default-character-image.png"
+DEFAULT_CHARACTER_IMAGE_PATH = (
+    Path(__file__).parent / "assets" / "default-character-image.png"
+)
 OLD_READ_ALOUD_PROMPTS = {
     "Native Japanese young adult woman, warm conversational voice.",
     "Native Japanese young adult woman, warm conversational voice, clear pronunciation, gentle emotional nuance.",
@@ -73,9 +81,15 @@ class SettingsStore:
             settings.character_name = AppSettings.model_fields["character_name"].default
             changed = True
         if settings.read_aloud_prompt in OLD_READ_ALOUD_PROMPTS:
-            settings.read_aloud_prompt = AppSettings.model_fields["read_aloud_prompt"].default
+            settings.read_aloud_prompt = AppSettings.model_fields[
+                "read_aloud_prompt"
+            ].default
             changed = True
-        if settings.tone_preset == "calm" and settings.distance == 40 and settings.speech_speed == 1.0:
+        if (
+            settings.tone_preset == "calm"
+            and settings.distance == 40
+            and settings.speech_speed == 1.0
+        ):
             settings.tone_preset = AppSettings.model_fields["tone_preset"].default
             settings.distance = AppSettings.model_fields["distance"].default
             settings.speech_speed = AppSettings.model_fields["speech_speed"].default

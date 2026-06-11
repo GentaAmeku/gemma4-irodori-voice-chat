@@ -14,13 +14,28 @@ import httpx
 
 from .adapters import IrodoriTtsClient, OllamaClient
 from .config import AppConfig, load_config
-from .models import AppSettings, HealthResponse, HistoryResponse, SpeakerOption, TextTurnRequest
+from .models import (
+    AppSettings,
+    HealthResponse,
+    HistoryResponse,
+    SpeakerOption,
+    TextTurnRequest,
+)
 from .service import ConversationBusyError, ConversationService, TurnFailedError
 from .storage import ConversationHistory, SettingsStore
 
 
 VOICE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
-ALLOWED_VOICE_SUFFIXES = {".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".webm"}
+ALLOWED_VOICE_SUFFIXES = {
+    ".wav",
+    ".flac",
+    ".mp3",
+    ".m4a",
+    ".ogg",
+    ".opus",
+    ".aac",
+    ".webm",
+}
 MAX_REFERENCE_VOICE_BYTES = 50 * 1024 * 1024
 
 # 会話ターン失敗コード -> HTTPステータス。timeout は 504、依存先不通・空応答は 502。
@@ -51,7 +66,9 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             app.state.history = history
             app.state.ollama = ollama
             app.state.tts = tts
-            app.state.conversation_service = ConversationService(settings_store, history, ollama, tts)
+            app.state.conversation_service = ConversationService(
+                settings_store, history, ollama, tts
+            )
             yield
 
     app = FastAPI(title="Gemma4 Irodori Chat Server", lifespan=lifespan)
@@ -122,7 +139,9 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             )
         except httpx.HTTPStatusError as exc:
             status_code = 409 if exc.response.status_code == 409 else 502
-            raise HTTPException(status_code=status_code, detail="irodori_voice_registration_failed") from exc
+            raise HTTPException(
+                status_code=status_code, detail="irodori_voice_registration_failed"
+            ) from exc
 
     @app.get("/api/history", response_model=HistoryResponse)
     async def get_history() -> HistoryResponse:
@@ -140,7 +159,9 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
         except ConversationBusyError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except TurnFailedError as exc:
-            raise HTTPException(status_code=TURN_ERROR_STATUS.get(exc.code, 502), detail=exc.code) from exc
+            raise HTTPException(
+                status_code=TURN_ERROR_STATUS.get(exc.code, 502), detail=exc.code
+            ) from exc
 
     @app.get("/api/character-image")
     async def get_character_image():

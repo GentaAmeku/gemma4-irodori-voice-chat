@@ -8,7 +8,13 @@ import wave
 import httpx
 
 from .config import AppConfig
-from .models import AppSettings, ConversationTurn, DependencyStatus, SpeakerOption, build_character_system_prompt
+from .models import (
+    AppSettings,
+    ConversationTurn,
+    DependencyStatus,
+    SpeakerOption,
+    build_character_system_prompt,
+)
 
 
 class OllamaClient:
@@ -35,7 +41,9 @@ class OllamaClient:
         if self.config.mock_services:
             return f"{settings.character_name}です。『{user_text}』について、まずは短く返すね。"
 
-        messages = [{"role": "system", "content": build_character_system_prompt(settings)}]
+        messages = [
+            {"role": "system", "content": build_character_system_prompt(settings)}
+        ]
         for turn in history:
             messages.append({"role": "user", "content": turn.user_text})
             messages.append({"role": "assistant", "content": turn.assistant_text})
@@ -76,7 +84,10 @@ class IrodoriTtsClient:
 
     async def speakers(self) -> list[SpeakerOption]:
         if self.config.mock_services:
-            return [SpeakerOption(id="none", label="none"), SpeakerOption(id="rinon", label="rinon")]
+            return [
+                SpeakerOption(id="none", label="none"),
+                SpeakerOption(id="rinon", label="rinon"),
+            ]
         response = await self.http.get(f"{self.config.tts_base_url}/v1/audio/voices")
         response.raise_for_status()
         data = response.json()
@@ -89,9 +100,15 @@ class IrodoriTtsClient:
             if isinstance(item, str):
                 options.append(SpeakerOption(id=item, label=item))
             elif isinstance(item, dict):
-                voice_id = str(item.get("id") or item.get("voice_id") or item.get("name") or "")
+                voice_id = str(
+                    item.get("id") or item.get("voice_id") or item.get("name") or ""
+                )
                 if voice_id:
-                    options.append(SpeakerOption(id=voice_id, label=str(item.get("label") or voice_id)))
+                    options.append(
+                        SpeakerOption(
+                            id=voice_id, label=str(item.get("label") or voice_id)
+                        )
+                    )
         return options or [SpeakerOption(id="none", label="none")]
 
     async def register_voice(
@@ -103,11 +120,16 @@ class IrodoriTtsClient:
         replace: bool,
     ) -> list[SpeakerOption]:
         if self.config.mock_services:
-            return [SpeakerOption(id="none", label="none"), SpeakerOption(id=voice_id, label=voice_id)]
+            return [
+                SpeakerOption(id="none", label="none"),
+                SpeakerOption(id=voice_id, label=voice_id),
+            ]
 
         files = {"file": (filename, content, content_type)}
         if replace:
-            response = await self.http.put(f"{self.config.tts_base_url}/v1/audio/voices/{voice_id}", files=files)
+            response = await self.http.put(
+                f"{self.config.tts_base_url}/v1/audio/voices/{voice_id}", files=files
+            )
         else:
             response = await self.http.post(
                 f"{self.config.tts_base_url}/v1/audio/voices",

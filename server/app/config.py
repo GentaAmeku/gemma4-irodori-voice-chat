@@ -47,14 +47,19 @@ def load_config() -> AppConfig:
     data_dir = Path(os.getenv("GIC_DATA_DIR", str(DATA_DIR))).expanduser()
     audio_dir = Path(os.getenv("GIC_AUDIO_DIR", str(data_dir / "audio"))).expanduser()
     return AppConfig(
-        ollama_base_url=os.getenv("GIC_OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/"),
+        ollama_base_url=os.getenv(
+            "GIC_OLLAMA_BASE_URL", "http://127.0.0.1:11434"
+        ).rstrip("/"),
         ollama_model=os.getenv("GIC_OLLAMA_MODEL", "gemma4:12b"),
         tts_base_url=os.getenv("GIC_TTS_BASE_URL", "http://127.0.0.1:8088").rstrip("/"),
         tts_model=os.getenv("GIC_TTS_MODEL", "irodori-tts"),
         tts_response_format=os.getenv("GIC_TTS_RESPONSE_FORMAT", "wav"),
-        tts_seed=_parse_optional_int(os.getenv("GIC_TTS_SEED"), default=DEFAULT_TTS_SEED),
+        tts_seed=_parse_optional_int(
+            os.getenv("GIC_TTS_SEED"), default=DEFAULT_TTS_SEED
+        ),
         request_timeout_seconds=float(os.getenv("GIC_REQUEST_TIMEOUT_SECONDS", "90")),
-        mock_services=os.getenv("GIC_MOCK_SERVICES", "0") in {"1", "true", "TRUE", "yes", "YES"},
+        mock_services=os.getenv("GIC_MOCK_SERVICES", "0")
+        in {"1", "true", "TRUE", "yes", "YES"},
         data_dir=data_dir,
         audio_dir=audio_dir,
     )
