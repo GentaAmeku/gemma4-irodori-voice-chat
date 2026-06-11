@@ -50,7 +50,7 @@ jobs:
       - run: pnpm build
         working-directory: client
       # Playwright のブラウザをキャッシュ(ロックファイルが変わらない限り再ダウンロードしない)
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('client/pnpm-lock.yaml') }}
