@@ -128,8 +128,8 @@ Do not make MacBook connect directly to Ollama or irodori-TTS.
 Use the Windows LAN IPv4 from `ipconfig`, not the default gateway:
 
 ```text
-IPv4 Address: 192.168.3.2          <- use this
-Default Gateway: 192.168.3.1       <- do not use this
+IPv4 Address: 192.168.0.10          <- use this
+Default Gateway: 192.168.0.1       <- do not use this
 ```
 
 If Windows PowerShell can reach `127.0.0.1:8000` but cannot reach `<desktop-pc-lan-ip>:8000`, diagnose Windows LAN exposure, not the FastAPI server:

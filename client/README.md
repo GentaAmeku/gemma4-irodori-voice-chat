@@ -7,12 +7,12 @@ pnpm install
 pnpm dev
 ```
 
-既定の接続先は `http://192.168.3.2:8000` です。画面上の接続先入力からLAN内の会話サーバーURLに変更できます。接続に成功したURLはlocalStorageに保存され、次回起動時に優先されます。
+既定の接続先は `http://127.0.0.1:8000` です。LAN内の推論PCへ接続する場合は、画面上の接続先入力から会話サーバーURL（例: `http://192.168.0.10:8000`）に変更します。接続に成功したURLはlocalStorageに保存され、次回起動時に優先されます。
 
-既定値を固定する場合は、`client/.env.example` を参考に `client/.env.local` を作成します。
+既定値自体を変えたい場合は、`client/.env.example` を参考に `client/.env.local`（git管理外）を作成します。
 
 ```sh
-VITE_GIC_DEFAULT_BASE_URL=http://192.168.3.2:8000
+VITE_GIC_DEFAULT_BASE_URL=http://192.168.0.10:8000
 ```
 
 `pnpm dev` 起動中に `.env.local` を変更した場合は、Viteを再起動してください。

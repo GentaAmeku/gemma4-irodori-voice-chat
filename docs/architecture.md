@@ -129,7 +129,7 @@ flowchart LR
 
 注意点:
 
-- Web Speech API は **セキュアコンテキスト**（`localhost` / https / Tauri）が必要。素の LAN http（例: スマホから `http://192.168.3.2`）では使えず、マイクは無効表示になります。
+- Web Speech API は **セキュアコンテキスト**（`localhost` / https / Tauri）が必要。素の LAN http（例: スマホから `http://192.168.0.10`）では使えず、マイクは無効表示になります。
 - Chrome では音声が外部（Google）の音声認識へ送られます。これは**許容**しています。「LAN 内完結」は LLM 推論経路の方針で、この音声入力の文字起こし経路は対象外です。
 - **最終形**は Tauri アプリ（MacBook）。Tauri の WebView はセキュアコンテキストなので、ブラウザ http では無効だった音声入力もアプリ内で動きます（[Tauri Setup](./tauri-setup.md)）。
 

@@ -39,14 +39,14 @@ MacBookからdesktop PC / WSL構成へ登録する場合の推奨手順です。
 MacBookはIrodori-TTS-Serverの8088番へ直接接続せず、会話サーバーの8000番へ音声ファイルをアップロードします。
 
 ```bash
-SERVER_BASE_URL=http://192.168.3.2:8000 \
+SERVER_BASE_URL=http://192.168.0.10:8000 \
   ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav
 ```
 
 同じ話者IDを置き換える場合:
 
 ```bash
-SERVER_BASE_URL=http://192.168.3.2:8000 \
+SERVER_BASE_URL=http://192.168.0.10:8000 \
   ./scripts/register-conversation-voice.sh rinon /path/to/rinon.wav --replace
 ```
 

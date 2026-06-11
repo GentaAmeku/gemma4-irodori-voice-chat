@@ -109,7 +109,7 @@ GIC_OLLAMA_MODEL=gemma4:12b ./scripts/mac/start-conversation-server-mac.sh
 http://127.0.0.1:5173/
 ```
 
-MacBookローカル用クライアントでは、接続先の既定値は `http://127.0.0.1:8000` です。Windows推論PC接続用に保存した `http://192.168.3.2:8000` とは別のlocalStorageキーを使います。
+MacBookローカル用クライアントでは、接続先の既定値は `http://127.0.0.1:8000` です。Windows推論PC接続用に保存したURL（例: `http://192.168.0.10:8000`）とは別のlocalStorageキーを使います。
 
 ## 6. 疎通確認
 

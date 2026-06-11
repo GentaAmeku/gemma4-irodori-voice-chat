@@ -97,7 +97,7 @@ Be careful with Ollama. If Ollama was already running before this project starte
 ## Troubleshooting priorities
 
 - If `/api/health` shows `model` other than `gemma4:e4b-mlx`, confirm the server was started with `scripts/mac/start-conversation-server-mac.sh`.
-- If the client shows `http://192.168.3.2:8000`, confirm it was started with `scripts/mac/start-client-mac.sh`; that script uses `gemma4-irodori-chat.base-url.mac-local`.
+- If the client shows the Windows inference PC URL (for example `http://192.168.0.10:8000`) instead of `http://127.0.0.1:8000`, confirm it was started with `scripts/mac/start-client-mac.sh`; that script uses the separate `gemma4-irodori-chat.base-url.mac-local` storage key.
 - If Irodori health is OK but text turns timeout, suspect first model load. Keep `GIC_REQUEST_TIMEOUT_SECONDS=600` and check Irodori logs.
 - If `/api/speakers` returns only `none`, no reference voice is registered in `../Irodori-TTS-Server/voices/`.
 - If Irodori exits after background startup, retry with foreground `./scripts/mac/start-irodori-mac.sh` and inspect the visible logs.

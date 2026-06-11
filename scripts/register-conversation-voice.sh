@@ -10,8 +10,8 @@ Environment:
   SERVER_BASE_URL  Conversation server base URL. Default: http://127.0.0.1:8000
 
 Examples:
-  SERVER_BASE_URL=http://192.168.3.2:8000 scripts/register-conversation-voice.sh rinon ./rinon.wav
-  SERVER_BASE_URL=http://192.168.3.2:8000 scripts/register-conversation-voice.sh rinon ./rinon.wav --replace
+  SERVER_BASE_URL=http://192.168.0.10:8000 scripts/register-conversation-voice.sh rinon ./rinon.wav
+  SERVER_BASE_URL=http://192.168.0.10:8000 scripts/register-conversation-voice.sh rinon ./rinon.wav --replace
 USAGE
 }
 

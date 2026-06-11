@@ -20,7 +20,7 @@ function Resolve-LanIp {
     Select-Object -First 1
 
   if (-not $candidate) {
-    throw "Could not resolve the Windows LAN IPv4. Pass -LanIp, for example: -LanIp 192.168.3.2"
+    throw "Could not resolve the Windows LAN IPv4. Pass -LanIp, for example: -LanIp 192.168.0.10"
   }
 
   return $candidate.IPAddress
