@@ -1,170 +1,72 @@
 # Gemma4 Irodori Chat
 
-日本語音声会話AIアプリのMVP実装。
+日本語 | [English](./README.en.md)
 
-現時点の縦切りは、Svelte WebクライアントからFastAPI会話サーバーへテキスト入力を送り、LLM応答、読み上げ音声生成、履歴表示、音声再生までを通す構成です。
+ローカルLLMをサーバー機（Windows + AMD GPU / WSL）で動かし、テキスト解析と音声出力を行うAI会話アプリです。Gemma4（LLM）と Irodori-TTS（読み上げ）を使って、AIキャラクターとの日本語音声会話を試すための研究プロジェクトです。
 
-## Structure
+テキストまたは音声で話しかけると、ローカルで動くLLMが返答を生成し、キャラクターが読み上げ音声で返事をします。クラウドのLLM APIは使わず、推論はすべて自分のPC（同一LAN内）で完結します。
+
+> [!WARNING]
+> 利用は可能ですが、テスト段階の部分が多いため、動作は保証しません。
+
+サーバー機を用意せず、PC 1台だけで動かすこともできます。セットアップ手順は[動かし方（3つの構成）](#動かし方3つの構成)と、各構成のセットアップガイド（[WSL AMD Setup](./docs/wsl-amd-setup.md) / [MacBook Local Setup](./docs/macbook-local-setup.md)）を参考にしてください。
+
+## 全体像
+
+クライアントは**会話サーバーのURL1つ**だけに接続し、会話サーバーが裏でLLMと読み上げを呼び分けます。
+
+```mermaid
+flowchart LR
+    cl["クライアント :5173<br/>(Svelte / ブラウザ or Tauri)"] --> cs["会話サーバー :8000<br/>(FastAPI)"]
+    cs --> ol["Ollama :11434<br/>(LLM: gemma4)"]
+    cs --> tt["Irodori-TTS :8088<br/>(読み上げ)"]
+```
+
+| 層 | 技術 |
+|---|---|
+| クライアント | Svelte 5 + TypeScript + Vite（`client/`）。Tauri v2でのデスクトップ化の足場あり |
+| 会話サーバー | Python + FastAPI + uv（`server/`） |
+| LLM | Ollama + gemma4（外部プロセス） |
+| 読み上げ | [Irodori-TTS-Server](https://github.com/GentaAmeku/Irodori-TTS-Server)（外部リポジトリ。`../Irodori-TTS-Server` に配置） |
+
+詳しい仕組みは [Architecture Overview](./docs/architecture.md) を参照してください。
+
+## 動かし方（3つの構成）
+
+| 構成 | 用途 | 手順 |
+|---|---|---|
+| **Windows PC 1台（WSL）** | 推論PC1台だけで完結。**初めて動かすならこれ** | 下のクイックスタート |
+| MacBookクライアント + Windows推論PC | 同一LAN内の別端末から会話する（標準構成） | [WSL AMD Setup](./docs/wsl-amd-setup.md) |
+| MacBook単体 | 推論PCなしで開発・動作確認（CPU読み上げで遅め） | [MacBook Local Setup](./docs/macbook-local-setup.md) |
+
+### クイックスタート（Windows PC 1台 / WSL）
+
+前提: WSL2 Ubuntu導入済み、Windows側にOllama、WSL側に `uv` / `node` / `pnpm`（WSLでは `sudo npm install -g pnpm@11.1.2`）。AMD GPUの場合、Irodori-TTS-ServerはROCm（`rocm` extra）で動かします。詳細・トラブルシュートは [WSL AMD Setup](./docs/wsl-amd-setup.md)。
 
 ```text
-/
-├── server/   # FastAPI conversation server
-├── client/   # Svelte + TypeScript + Vite web client
-├── docs/     # design notes and ADRs
-└── CONTEXT.md
-```
-
-## Server
-
-開発用モックで起動:
-
-```sh
-cd server
-uv sync
-GIC_MOCK_SERVICES=1 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Ollama / irodori-TTS を使う場合:
-
-```sh
-cd server
-GIC_OLLAMA_BASE_URL=http://127.0.0.1:11434 \
-GIC_OLLAMA_MODEL=gemma4:12b \
-GIC_TTS_BASE_URL=http://127.0.0.1:8088 \
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-テスト:
-
-```sh
-cd server
-uv run pytest
-```
-
-## Irodori-TTS-Server
-
-公式のOpenAI互換サーバーを別ディレクトリに用意します。
-
-### MacBook Local
-
-開発中のMacBookだけで動かす場合は、Ollama `gemma4:e4b-mlx` とIrodori-TTS-ServerのCPU backendを使う別プロファイルにします。
-
-詳しい手順は [MacBook Local Setup](./docs/macbook-local-setup.md) を参照してください。
-
-```sh
-./scripts/mac/setup-irodori-mac.sh
-./scripts/mac/start-inference-stack-mac.sh
-```
-
-別ターミナルで会話サーバーを起動:
-
-```sh
-./scripts/mac/start-conversation-server-mac.sh
-```
-
-別ターミナルでクライアントを起動:
-
-```sh
-./scripts/mac/start-client-mac.sh
-```
-
-### Windows AMD / WSL
-
-Windows AMD推論PCでは、WSL2 UbuntuでこのプロジェクトとIrodori-TTS-Serverを動かす構成を標準手順にします。OllamaはWindowsネイティブで起動し、WSL側の会話サーバーから接続します。
-
-詳しい手順は [WSL AMD Setup](./docs/wsl-amd-setup.md) を参照してください。
-
-この手順では、WSL2 Ubuntuがインストール済みであることを前提にします。WSL自体のインストールはプロジェクトのセットアップ範囲外です。
-
-### Windows Native Fallback
-
-Windowsネイティブのみで進める手順は標準ではありません。必要な場合だけ、Irodori-TTS-ServerをCPU backendで動かすフォールバックとして使います。
-
-詳しい手順は [Windows AMD Setup](./docs/windows-amd-setup.md) を参照してください。
-
-```powershell
-.\scripts\windows\setup-irodori-windows.ps1
-```
-
-OllamaとIrodori-TTS-Serverを起動:
-
-```powershell
-.\scripts\windows\start-inference-stack-windows.ps1
-```
-
-別ターミナルで会話サーバーを起動:
-
-```powershell
-.\scripts\windows\start-conversation-server-real-windows.ps1
-```
-
-疎通確認:
-
-```powershell
-.\scripts\windows\check-real-stack-windows.ps1
-```
-
-### Linux AMD
-
-Linux AMD / ROCmでは以下を使います。
-
-```sh
-./scripts/setup-irodori-amd.sh
-```
-
-起動:
-
-```sh
-cd ../Irodori-TTS-Server
-uv run --extra rocm python -m irodori_openai_tts --host 0.0.0.0 --port 8088
-```
-
-確認:
-
-```sh
-curl http://127.0.0.1:8088/health
-curl http://127.0.0.1:8088/v1/audio/voices
-```
-
-参照音声を使う場合は `../Irodori-TTS-Server/voices/` に音声ファイルを置きます。ファイル名のstemが `voice` IDになります。
-
-## Linux Inference Stack
-
-OllamaとIrodori-TTS-Serverがセットアップ済みなら、以下の1コマンドで両方を起動できます。
-
-```sh
-./scripts/start-inference-stack.sh
-```
-
-このスクリプトはデフォルトでIrodori-TTS-Serverを `uv run --extra rocm` で起動します。
-
-`Irodori-TTS-Server` の場所が既定の `../Irodori-TTS-Server` と違う場合:
-
-```sh
-IRODORI_TTS_SERVER_DIR=/path/to/Irodori-TTS-Server ./scripts/start-inference-stack.sh
-```
-
-このスクリプトは初回インストールを完全自動化しません。ROCmドライバ、PyTorch backend、GPU認識は環境差が大きいため、Irodori-TTS-Serverの初期セットアップだけは明示的に行ってください。
-
-実サービスに接続して会話サーバーを起動:
-
-```sh
-./scripts/start-conversation-server-real.sh
-```
-
-モデル名が違う場合:
-
-```sh
-GIC_OLLAMA_MODEL=gemma4:12b ./scripts/start-conversation-server-real.sh
+1. (Windows)            ollama pull gemma4:12b
+2. (WSL)                git clone https://github.com/GentaAmeku/gemma4-irodori-voice-chat.git
+3. (WSL・初回のみ)       ./scripts/wsl/setup-irodori-wsl-amd.sh    # ../Irodori-TTS-Server を用意
+4. (WSL)                ./scripts/wsl/start-desktop-stack.sh      # Irodori + 会話サーバーを一括起動
+5. (WSL・別ターミナル)   ./scripts/wsl/start-client-wsl.sh         # Webクライアントを起動
+6. (Windows)            ブラウザで http://localhost:5173 を開く
 ```
 
 疎通確認:
 
 ```sh
-./scripts/check-real-stack.sh
+./scripts/wsl/check-wsl-stack.sh
 ```
 
-## Client
+### MacBookなど別端末から使う場合（標準構成）
+
+推論PC側は上のクイックスタート手順1〜4と同じです。加えて、LAN公開のために初回のみWindowsの管理者PowerShellで portproxy タスクを登録します。
+
+```powershell
+.\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <推論PCのIP>
+```
+
+クライアント端末（MacBookなど）では:
 
 ```sh
 cd client
@@ -172,44 +74,61 @@ pnpm install
 pnpm dev
 ```
 
-ブラウザで `http://127.0.0.1:5173/` を開きます。
+ブラウザで `http://127.0.0.1:5173` を開き、画面の接続先を `http://<推論PCのIP>:8000` にします。詳細は [Scripts & Server Startup](./docs/scripts-and-startup.md) と [Verification Guide](./docs/verification.md)。
 
-検証:
+### 開発用: モックで起動（OllamaもTTSも不要）
 
-```sh
-cd client
-pnpm check
-pnpm build
-pnpm test:e2e
-```
-
-## Desktop App（Tauri）
-
-Web クライアントを Tauri v2 でデスクトップアプリ化する足場を `client/src-tauri/` に用意しています。Tauri の WebView はセキュアコンテキストのため、ブラウザの http 配信では無効になる音声入力（Web Speech API / マイク）もアプリ内では動きます。
+UI確認やテストだけなら、外部サービスなしで動かせます。
 
 ```sh
+# 会話サーバー（モック応答）
+cd server
+uv sync
+GIC_MOCK_SERVICES=1 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+# クライアント（別ターミナル）
 cd client
-pnpm tauri dev     # 開発（初回は Rust 依存のコンパイルで数分）
-pnpm tauri build   # 配布ビルド（.app / .dmg）
+pnpm install
+VITE_GIC_DEFAULT_BASE_URL=http://127.0.0.1:8000 pnpm dev
 ```
 
-前提: Rust ツールチェーン（`rustup` / `cargo`）と Xcode Command Line Tools。詳細は [Tauri Setup](./docs/tauri-setup.md)。
+## 開発
 
-## Documents
+検証コマンド一式:
 
-- [Architecture Overview](./docs/architecture.md)
-- [Scripts & Server Startup](./docs/scripts-and-startup.md)
-- [MVP Plan](./docs/mvp-plan.md)
-- [Design Notes](./docs/design.md)
-- [Verification Guide](./docs/verification.md)
-- [Handoff](./docs/handoff.md)
-- [MacBook Local Setup](./docs/macbook-local-setup.md)
-- [WSL AMD Setup](./docs/wsl-amd-setup.md)
-- [Windows AMD Setup](./docs/windows-amd-setup.md)
-- [Context Glossary](./CONTEXT.md)
+```sh
+cd server && uv run ruff check . && uv run pytest      # サーバー
+pnpm -C client check && pnpm -C client build           # クライアント型チェック・ビルド
+pnpm -C client test:e2e                                # E2E（モックサーバー自動起動）
+```
+
+format / チェックは編集時・コミット時・CIで自動化しています。**クローン後に一度だけ** git フックを有効化してください:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+詳細（Claude Codeフック・pre-commit・編集フロー）は [AGENTS.md](./AGENTS.md) を参照。GitHub Actions（[ci.yml](./.github/workflows/ci.yml)）でも同じチェックが走ります。
+
+デスクトップアプリ化（Tauri v2）の足場は `client/src-tauri/` にあります。ビルドは最後の工程として後回しにしており、初回ビルド前の懸念点は調査済みです（[Tauri Setup](./docs/tauri-setup.md) の事前調査メモを参照）。
+
+## ドキュメント
+
+| ドキュメント | 内容 |
+|---|---|
+| [Architecture Overview](./docs/architecture.md) | チャット1往復で何が起きるか・技術スタック（図解） |
+| [Scripts & Server Startup](./docs/scripts-and-startup.md) | `scripts/` の全スクリプトの役割と起動の仕組み |
+| [WSL AMD Setup](./docs/wsl-amd-setup.md) | Windows AMD推論PC（WSL2）のセットアップ |
+| [MacBook Local Setup](./docs/macbook-local-setup.md) | MacBook単体で動かす開発用セットアップ |
+| [Verification Guide](./docs/verification.md) | LAN越しの動作確認手順 |
+| [Tauri Setup](./docs/tauri-setup.md) | デスクトップアプリ化の足場 |
+| [No-Reference Voice Setup](./docs/no-ref-voice-setup.md) | 既定の読み上げ声質（`speaker_id: "none"`）の調整 |
+| [Reference Voice Setup](./docs/reference-voice-setup.md) / [VoiceDesign Sample Setup](./docs/voicedesign-sample-setup.md) | 参照音声の登録・生成（MVP外の将来機能） |
+| [ADR](./docs/adr/) | 設計判断の記録（thin client / LAN-only / Svelte） |
+| [Context Glossary](./CONTEXT.md) | 用語集（ユビキタス言語） |
+| [AGENTS.md](./AGENTS.md) | コーディングエージェント共通の作業ガイド |
 
 ## Agent Skills
 
-- [Gemma4 Irodori Setup](./.agents/skills/gemma4-irodori-setup/SKILL.md): Windows AMD / WSLセットアップ支援用のCodexスキル。
-- [Gemma4 MacBook Local Setup](./.agents/skills/gemma4-macbook-local-setup/SKILL.md): MacBookローカルのOllama / Irodori / 会話サーバー / クライアント起動・検証用のCodexスキル。
-- [Gemma4 Windows AMD Setup](./.agents/skills/gemma4-windows-amd-setup/SKILL.md): Windows AMD推論PC、WSL2 Ubuntu、LAN公開の切り分け用のCodexスキル。
+- **Claude Code**（`.claude/skills/`）: `/check-all`（検証一式）、`/start-stack`（環境判別してスタック起動）。フックによる自動format/チェックは [.claude/hooks/README.md](./.claude/hooks/README.md)。
+- **Codex**（`.agents/skills/`）: [gemma4-windows-amd-setup](./.agents/skills/gemma4-windows-amd-setup/SKILL.md)（Windows AMD / WSL / LAN公開の切り分け）、[gemma4-macbook-local-setup](./.agents/skills/gemma4-macbook-local-setup/SKILL.md)（MacBook単体構成）。
