@@ -75,11 +75,11 @@ scripts/generate-voicedesign-sample.sh --caption "低くかすれた声の、物
 会話の読み上げ自体をVoiceDesignで行う構成。アプリの「読み上げ設定」がspeech requestの `irodori.caption` としてそのまま送られ、設定パネルから声質を文章で変えられるようになる。
 
 1. desktop PC / WSLの `../Irodori-TTS-Server` を caption対応ブランチへ更新し、依存を同期する。
-   caption対応はフォーク [genta-ameku-w/Irodori-TTS-Server](https://github.com/genta-ameku-w/Irodori-TTS-Server) の `feature/voicedesign-caption` ブランチにある(本家には未マージ):
+   caption対応はフォーク [GentaAmeku/Irodori-TTS-Server](https://github.com/GentaAmeku/Irodori-TTS-Server) の `feature/voicedesign-caption` ブランチにある(本家には未マージ):
 
    ```bash
    cd ../Irodori-TTS-Server
-   git remote add fork https://github.com/genta-ameku-w/Irodori-TTS-Server.git  # 未追加の場合のみ
+   git remote add fork https://github.com/GentaAmeku/Irodori-TTS-Server.git  # 未追加の場合のみ
    git fetch fork
    git switch -c feature/voicedesign-caption fork/feature/voicedesign-caption
    uv sync --extra rocm
