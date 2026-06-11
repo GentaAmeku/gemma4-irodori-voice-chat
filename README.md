@@ -11,6 +11,8 @@
 
 サーバー機を用意せず、PC 1台だけで動かすこともできます。セットアップ手順は[動かし方（3つの構成）](#動かし方3つの構成)と、各構成のセットアップガイド（[WSL AMD Setup](./docs/wsl-amd-setup.md) / [MacBook Local Setup](./docs/macbook-local-setup.md)）を参考にしてください。
 
+![Irodori Chat のスクリーンショット: キャラクター画像と日本語の会話スレッド、読み上げ音声プレイヤー、音声入力欄](./docs/assets/screenshot.png)
+
 ## 全体像
 
 クライアントは**会話サーバーのURL1つ**だけに接続し、会話サーバーが裏でLLMと読み上げを呼び分けます。

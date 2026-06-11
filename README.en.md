@@ -11,6 +11,8 @@ Talk to it by text or voice: the locally running LLM generates a reply, and the 
 
 You can also run everything on a single PC without a dedicated server machine. For setup, see [How to run (3 profiles)](#how-to-run-3-profiles) and the per-profile setup guides ([WSL AMD Setup](./docs/wsl-amd-setup.md) / [MacBook Local Setup](./docs/macbook-local-setup.md), both in Japanese).
 
+![Screenshot of Irodori Chat: character image next to a Japanese conversation thread with speech players and a voice input box](./docs/assets/screenshot.png)
+
 ## Overview
 
 The client connects to **a single conversation-server URL**, and the conversation server orchestrates the LLM and text-to-speech behind it.
