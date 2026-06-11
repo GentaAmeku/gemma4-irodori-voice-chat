@@ -93,6 +93,26 @@ cp /path/to/rinon.wav ../Irodori-TTS-Server/voices/rinon.wav
 
 直置きした場合は、必要に応じてIrodori-TTS-Serverを再起動します。
 
+## 登録方法D: assets/voices/ にコミットしてセットアップ時に自動配置する
+
+このリポジトリの `assets/voices/` に音声ファイルを置いてコミットしておくと、
+セットアップスクリプト(`scripts/wsl/setup-irodori-wsl-amd.sh` / `scripts/mac/setup-irodori-mac.sh`)が
+クローン後に `../Irodori-TTS-Server/voices/` へ自動コピーします。
+Irodori-TTS-Serverをクローンし直しても参照音声が復元される、推奨の永続化方法です。
+
+```bash
+cp /path/to/rena.wav assets/voices/rena.wav
+git add assets/voices/rena.wav
+git commit -m "feat(voices): add rena reference voice"
+git push
+```
+
+注意: このリポジトリは公開リポジトリです。実在の人物の録音は置かず、
+VoiceDesignで生成した合成音声のみを置いてください([VoiceDesign Sample Setup](./voicedesign-sample-setup.md)参照)。
+
+すでにセットアップ済みの環境では、セットアップスクリプトを再実行するか、
+登録方法A〜Cで個別に登録してください(コピーは既存ファイルを上書きしません)。
+
 ## 確認
 
 Irodori-TTS-Serverで話者が見えることを確認します。

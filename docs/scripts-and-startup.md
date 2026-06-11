@@ -51,7 +51,7 @@ flowchart LR
 
 | スクリプト | 何をするか |
 |---|---|
-| `setup-irodori-mac.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra cpu`（Mac は CPU backend）。`.env` を用意 |
+| `setup-irodori-mac.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra cpu`（Mac は CPU backend）。`.env` を用意し、`assets/voices/` の参照音声を `voices/` へ配置 |
 | `start-inference-stack-mac.sh` | Ollama を起動し、モデル `gemma4:e4b-mlx` の有無を確認。続けて Irodori を `cpu` で起動。ログ/PID は `.logs/` |
 | `start-irodori-mac.sh` | Irodori だけを前面起動（`cpu`、`127.0.0.1:8088`） |
 | `start-conversation-server-mac.sh` | 会話サーバーを **`127.0.0.1:8000`** で起動（外に公開しない）。`gemma4:e4b-mlx` / タイムアウト 600 秒 |
@@ -62,7 +62,7 @@ flowchart LR
 
 | スクリプト | 何をするか |
 |---|---|
-| `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra rocm`（AMD GPU） |
+| `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra rocm`（AMD GPU）。`assets/voices/` の参照音声を `voices/` へ配置 |
 | `setup-voicedesign-wsl-amd.sh` | `../Irodori-TTS` を clone し `uv sync --extra rocm`。VoiceDesign での参照音声サンプル生成用 |
 | `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。portproxy タスク未登録時は Windows UAC 昇格で初回登録を試みる。日常起動の推奨入口 |
 | `start-irodori-wsl-amd.sh` | Irodori を `rocm` で起動（`0.0.0.0:8088`） |

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 IRODORI_TTS_SERVER_DIR="${IRODORI_TTS_SERVER_DIR:-"$ROOT_DIR/../Irodori-TTS-Server"}"
+VOICE_ASSETS_DIR="$ROOT_DIR/assets/voices"
 # 既定はcaption対応(読み上げ設定→声質指示)を含むGentaAmekuフォーク。本家を使う場合は上書きする。
 IRODORI_TTS_SERVER_REPO="${IRODORI_TTS_SERVER_REPO:-https://github.com/GentaAmeku/Irodori-TTS-Server.git}"
 
@@ -26,6 +27,18 @@ uv sync --extra rocm
 if [ ! -f .env ] && [ -f .env.example ]; then
   cp .env.example .env
 fi
+
+# assets/voices/ にコミットされた参照音声を voices/ へ配置する。
+# 既存ファイルは上書きしない(クローンし直し時の復元用)。
+mkdir -p "$IRODORI_TTS_SERVER_DIR/voices"
+for voice in "$VOICE_ASSETS_DIR"/*.{wav,flac,mp3,m4a,ogg,opus,aac,webm}; do
+  [ -f "$voice" ] || continue
+  target="$IRODORI_TTS_SERVER_DIR/voices/$(basename "$voice")"
+  if [ ! -f "$target" ]; then
+    cp "$voice" "$target"
+    echo "installed reference voice: $(basename "$voice")"
+  fi
+done
 
 cat <<EOF
 Irodori-TTS-Server is set up for WSL AMD ROCm:
