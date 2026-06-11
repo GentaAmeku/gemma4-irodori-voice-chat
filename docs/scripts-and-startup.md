@@ -29,17 +29,17 @@ flowchart LR
 スクリプトは「**環境ディレクトリ × 役割**」で並んでいます。役割は名前で分かります。
 
 - 環境ディレクトリ
+  - `scripts/wsl/` … 推論PC（Windows）の WSL（標準構成。Ollama は Windows 側）
+  - `scripts/windows/` … WSL を LAN 公開するための Windows 側補助（PowerShell `.ps1`）
   - `scripts/mac/` … MacBook 単体（全部 Mac で動かす開発構成）
-  - `scripts/wsl/` … デスクトップ PC の WSL（標準構成。Ollama は Windows 側）
-  - `scripts/` 直下 … 汎用 Linux / AMD
-  - `scripts/windows/` … Windows ネイティブのフォールバック（PowerShell `.ps1`）
+  - `scripts/` 直下 … 参照音声まわりの共通スクリプト（MVP 外の将来機能）
 - 役割（接頭辞）
   - `setup-irodori-*` … Irodori-TTS-Server を **一度だけ** 用意（clone + `uv sync`）
   - `start-inference-stack-*` … **Ollama + Irodori をまとめてバックグラウンド起動**
-  - `start-desktop-stack` … デスクトップ PC / WSL 標準構成を **日常用に一括起動**
+  - `start-desktop-stack` … 推論PC / WSL 標準構成を **日常用に一括起動**
   - `start-irodori-*` … Irodori だけを前面起動
   - `start-conversation-server-*` … **このアプリの会話サーバー(8000)を起動**
-  - `start-client-mac` … Web クライアント(5173)を起動
+  - `start-client-*` … Web クライアント(5173)を起動
   - `check-*-stack` … 各サービスの疎通＋サンプル会話で動作確認
   - `register-*-voice` … 参照音声の登録（MVP 外の将来機能）
 
@@ -58,7 +58,7 @@ flowchart LR
 | `start-client-mac.sh` | クライアントを `pnpm dev` で起動。接続先既定 `http://127.0.0.1:8000`、保存キーは Mac ローカル専用 |
 | `check-mac-stack.sh` | Ollama / Irodori / 会話サーバーの health とサンプル会話を curl で確認 |
 
-### デスクトップ PC / WSL（`scripts/wsl/`）標準構成
+### 推論PC / WSL（`scripts/wsl/`）標準構成
 
 | スクリプト | 何をするか |
 |---|---|
@@ -67,7 +67,9 @@ flowchart LR
 | `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。日常起動の推奨入口 |
 | `start-irodori-wsl-amd.sh` | Irodori を `rocm` で起動（`0.0.0.0:8088`） |
 | `start-conversation-server-wsl.sh` | 会話サーバーを **`0.0.0.0:8000`** で起動（LAN 公開して MacBook から届くように）。Ollama ホストを自動解決（後述） |
+| `start-client-wsl.sh` | Web クライアントを WSL 内で起動。**Windows PC 1台で完結する構成**用（Windows のブラウザから `http://localhost:5173` を開く） |
 | `check-wsl-stack.sh` | Ollama / Irodori / 会話サーバーの health とサンプル会話を確認 |
+| `reset-character-defaults.sh` | キャラクター画像・設定をデフォルトへ戻す（`--image-only` / `--settings-only` / `-y`） |
 
 ※ Ollama は Windows ネイティブで起動する前提（WSL 側からは呼ぶだけ）。
 
@@ -78,19 +80,6 @@ flowchart LR
 | `install-portproxy-refresh-task.ps1` | 管理者 PowerShell で一度だけ実行。WSL から起動できる portproxy refresh タスクを登録 |
 | `refresh-wsl-portproxy.ps1` | 現在の WSL IP を取得し、`iphlpsvc` / `netsh interface portproxy` / Firewall ルールを更新 |
 | `check-lan-portproxy.ps1` | `iphlpsvc`、ネットワークプロファイル、Firewall、portproxy、LAN health を診断 |
-
-### 汎用 Linux / AMD（`scripts/` 直下）
-
-| スクリプト | 何をするか |
-|---|---|
-| `setup-irodori-amd.sh` | Irodori を clone + `uv sync --extra rocm` |
-| `start-inference-stack.sh` | Ollama + Irodori（`rocm`）をバックグラウンド起動。ログ/PID は `.logs/` |
-| `start-conversation-server-real.sh` | 会話サーバーを `0.0.0.0:8000` で起動（`gemma4:12b`） |
-| `check-real-stack.sh` | 実サービスの疎通確認 |
-
-### Windows ネイティブ・フォールバック（`scripts/windows/`）
-
-`setup-irodori-windows.ps1` / `start-inference-stack-windows.ps1` / `start-conversation-server-real-windows.ps1` / `check-real-stack-windows.ps1` は、上記「汎用 Linux / AMD」の各スクリプトの PowerShell 版です。標準は WSL なので、Windows ネイティブはフォールバック用です。
 
 ### 参照音声の登録（`scripts/` 直下・MVP 外）
 
@@ -135,9 +124,9 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ### `--host 127.0.0.1` と `--host 0.0.0.0` の違い
 
 - **Mac ローカル（`127.0.0.1`）**: 同じ Mac の中からしか接続できない。クライアントも同じ Mac なので十分。外には公開しない。
-- **デスクトップ PC / WSL（`0.0.0.0`）**: LAN の他の端末（= MacBook クライアント）から `http://<デスクトップのIP>:8000` で届くように、全インターフェースで待ち受ける。
+- **推論PC / WSL（`0.0.0.0`）**: LAN の他の端末（= MacBook クライアント）から `http://<推論PCのIP>:8000` で届くように、全インターフェースで待ち受ける。
 
-これが「LAN 内で MacBook → デスクトップ PC の会話サーバー」を成立させている部分です。
+これが「LAN 内で MacBook → 推論PCの会話サーバー」を成立させている部分です。
 
 ### WSL での Ollama ホスト自動解決
 
@@ -159,18 +148,33 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## 5. 起動手順（順番）
 
-### デスクトップ PC / WSL（標準）
+### 推論PC / WSL（標準: MacBook など別端末のクライアントから使う）
 
 ```text
 1. (Windows) Ollama を起動し、gemma4:12b を pull 済みにする
 2. (WSL・初回のみ) ./scripts/wsl/setup-irodori-wsl-amd.sh
-3. (Windows・初回のみ/管理者 PowerShell) .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <デスクトップのIP>
+3. (Windows・初回のみ/管理者 PowerShell) .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <推論PCのIP>
 4. (WSL) ./scripts/wsl/start-desktop-stack.sh
-5. (Mac) クライアントの接続先を http://<デスクトップのIP>:8000 にする
+5. (Mac) クライアントの接続先を http://<推論PCのIP>:8000 にする
 6. (任意) ./scripts/wsl/check-wsl-stack.sh で確認
 ```
 
 `start-desktop-stack.sh` は Irodori をバックグラウンド起動し、会話サーバーを起動します。会話サーバーのログを表示し続けるため、止めるときはそのターミナルで `Ctrl-C` します。Irodori はバックグラウンドに残るので、完全に止めたい場合は `.logs/irodori-wsl.pid` の PID を終了します。
+
+### Windows PC 1台で全部動かす（クライアントも同じPC）
+
+別のクライアント端末を用意しなくても、Windows PC 1台で完結できます。クライアントも WSL 内で起動し、Windows のブラウザから開きます。LAN 公開（portproxy、上の手順 3）は不要です。
+
+```text
+1. (Windows) Ollama を起動し、gemma4:12b を pull 済みにする
+2. (WSL・初回のみ) ./scripts/wsl/setup-irodori-wsl-amd.sh
+3. (WSL) ./scripts/wsl/start-desktop-stack.sh
+4. (WSL・別ターミナル) ./scripts/wsl/start-client-wsl.sh
+5. (Windows) ブラウザで http://localhost:5173 を開く（接続先は既定の http://127.0.0.1:8000 のまま）
+6. (任意) ./scripts/wsl/check-wsl-stack.sh で確認
+```
+
+WSL2 の localhost フォワーディングにより、WSL 内の 5173 / 8000 番へ Windows のブラウザから `localhost` で届きます。届かない場合は `hostname -I` の WSL IP を代わりに使ってください。
 
 ### MacBook 単体（開発）
 
@@ -191,7 +195,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 うまくいかないとき:
 
 - **会話サーバーは起動するが返答が来ない** → `GIC_OLLAMA_BASE_URL` / `GIC_TTS_BASE_URL` が正しいか、その先（Ollama/Irodori）が起動しているか。会話サーバーは失敗を原因別コード（`llm_unavailable` / `tts_timeout` 等）で返し、`gic.conversation` ロガーに警告を出します（[Architecture Overview](./architecture.md) の失敗コード表）。
-- **MacBook からデスクトップの 8000 に届かない** → まず Windows PowerShell で `.\scripts\windows\check-lan-portproxy.ps1 -LanIp <デスクトップのIP>`。必要なら管理者 PowerShell で `.\scripts\windows\refresh-wsl-portproxy.ps1 -LanIp <デスクトップのIP>`。詳細は [WSL AMD Setup](./wsl-amd-setup.md)。
+- **MacBook から推論PCの 8000 に届かない** → まず Windows PowerShell で `.\scripts\windows\check-lan-portproxy.ps1 -LanIp <推論PCのIP>`。必要なら管理者 PowerShell で `.\scripts\windows\refresh-wsl-portproxy.ps1 -LanIp <推論PCのIP>`。詳細は [WSL AMD Setup](./wsl-amd-setup.md)。
 - **WSL から Ollama に届かない** → `OLLAMA_HOST` を Windows ホストの IP で明示。
 - **Mac で初回の読み上げが遅い** → 仕様（モデルロード）。会話サーバーは `GIC_REQUEST_TIMEOUT_SECONDS=600` で待つ。
 
@@ -202,4 +206,3 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 - [Architecture Overview](./architecture.md) — リクエストの流れと技術スタック
 - [Verification Guide](./verification.md) — 動作確認の詳細
 - [MacBook Local Setup](./macbook-local-setup.md) / [WSL AMD Setup](./wsl-amd-setup.md) — 環境ごとの手順
-- [Handoff](./handoff.md) — 現在地

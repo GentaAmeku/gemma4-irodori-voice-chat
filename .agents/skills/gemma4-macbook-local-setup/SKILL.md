@@ -22,8 +22,8 @@ Use this skill for MacBook-only development and recovery work in this repository
 Before changing MacBook local setup instructions or diagnosing a MacBook local issue, read:
 
 1. `docs/macbook-local-setup.md`
-2. `docs/verification.md`
-3. `docs/handoff.md`
+2. `docs/scripts-and-startup.md`
+3. `docs/verification.md`
 
 Use those docs as the source of truth for current command names and known timings.
 

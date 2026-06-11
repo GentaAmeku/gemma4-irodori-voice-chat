@@ -23,8 +23,8 @@ Use this skill for Windows AMD environment setup and recovery for Gemma4 Irodori
 Before changing setup instructions or diagnosing a setup issue, read:
 
 1. `docs/wsl-amd-setup.md`
-2. `docs/verification.md`
-3. `docs/handoff.md`
+2. `docs/scripts-and-startup.md`
+3. `docs/verification.md`
 
 Use those docs as the source of truth for command names and current project status.
 
@@ -55,8 +55,10 @@ node --version
 pnpm --version
 hostname -I
 ./scripts/wsl/setup-irodori-wsl-amd.sh
+./scripts/wsl/start-desktop-stack.sh
 ./scripts/wsl/start-irodori-wsl-amd.sh
 ./scripts/wsl/start-conversation-server-wsl.sh
+./scripts/wsl/start-client-wsl.sh
 ./scripts/wsl/check-wsl-stack.sh
 ```
 
@@ -83,13 +85,24 @@ curl "http://${WINDOWS_HOST}:11434/api/tags"
 ./scripts/wsl/setup-irodori-wsl-amd.sh
 ```
 
-5. Start services in this order:
+5. Start services. The recommended daily entry point is the bundled script:
+
+```text
+Windows Ollama
+WSL stack (Irodori + portproxy refresh + conversation server): ./scripts/wsl/start-desktop-stack.sh
+Client:
+  - MacBook or another LAN device: connect its client to http://<inference-pc-lan-ip>:8000
+  - Single Windows PC (no separate client device): ./scripts/wsl/start-client-wsl.sh,
+    then open http://localhost:5173 in the Windows browser
+```
+
+Or start each service individually:
 
 ```text
 Windows Ollama
 WSL Irodori-TTS-Server: ./scripts/wsl/start-irodori-wsl-amd.sh
 WSL conversation server: ./scripts/wsl/start-conversation-server-wsl.sh
-WSL or Mac client: cd client && pnpm dev
+WSL client: ./scripts/wsl/start-client-wsl.sh
 ```
 
 6. Validate from WSL:

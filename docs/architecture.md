@@ -8,11 +8,11 @@
 
 ## 1. 全体像
 
-ユーザーが触るのは **Web クライアント** だけです。クライアントは **会話サーバー** にだけ接続し、会話サーバーが裏で **LLM（Ollama）** と **読み上げ（Irodori-TTS）** を呼び分けます。クライアントから LLM や TTS へ直接はつなぎません（[ADR 0001: thin client](./adr/0001-thin-client-conversation-server.md)）。
+利用者が触るのは **Web クライアント** だけです。クライアントは **会話サーバー** にだけ接続し、会話サーバーが裏で **LLM（Ollama）** と **読み上げ（Irodori-TTS）** を呼び分けます。クライアントから LLM や TTS へ直接はつなぎません（[ADR 0001: thin client](./adr/0001-thin-client-conversation-server.md)）。
 
 ```mermaid
 flowchart LR
-    user(["ユーザー"])
+    user(["利用者"])
 
     subgraph client["クライアント (Svelte/Vite・ブラウザ or Tauri)"]
       ui["チャットUI / 設定 / 音声入力"]
@@ -41,7 +41,7 @@ flowchart LR
 
 - クライアントは「会話サーバーの URL」一つだけ知っていればよい。
 - 会話サーバーは薄いオーケストレーター。重い処理（生成・合成）は Ollama と Irodori-TTS が担当。
-- 「LAN 内完結」とは、この **LLM 推論・会話サーバー経路** を同一 LAN 内（MacBook クライアント → デスクトップ PC のローカル LLM）で動かすこと。
+- 「LAN 内完結」とは、この **LLM 推論・会話サーバー経路** を同一 LAN 内（MacBook クライアント → 推論PCのローカル LLM）で動かすこと。
 
 ---
 
@@ -52,7 +52,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as ユーザー
+    participant U as 利用者
     participant C as クライアント
     participant S as 会話サーバー
     participant O as Ollama (LLM)
@@ -90,7 +90,7 @@ sequenceDiagram
    ```
 
    つまりキャラ設定は「毎回 LLM に渡す前置き（system メッセージ）」として効きます。
-5. **LLM 呼び出し**: `system + 直近履歴(最大10往復) + 今回のユーザー発話` を messages にして Ollama の `/api/chat` に送り、返答テキストを得ます（[adapters.py](../server/app/adapters.py) の `OllamaClient.chat`、`stream:false`）。
+5. **LLM 呼び出し**: `system + 直近履歴(最大10往復) + 今回の発話` を messages にして Ollama の `/api/chat` に送り、返答テキストを得ます（[adapters.py](../server/app/adapters.py) の `OllamaClient.chat`、`stream:false`）。
 6. **読み上げ合成**: 返答テキストを Irodori-TTS の `/v1/audio/speech` に送ります。`voice.id`(話者)・`speed`(話す速さ)・`irodori.seed`(声質を固定する種)を付けて、WAV を受け取ります（`IrodoriTtsClient.synthesize`）。
 7. **保存と返却**: WAV を `data/audio/<uuid>.wav` に保存し、`{ user_text, assistant_text, audio_url }` を返します。履歴はメモリに追加。
 8. **表示と再生**: クライアントは返答を吹き出し表示し、`audio_url`（`/media/audio/...`、`StaticFiles` で配信）から WAV を取得して再生します（自動読み上げ ON 時）。
@@ -107,6 +107,12 @@ sequenceDiagram
 | `conversation_busy` | 409 | 別の会話を処理中 |
 
 サーバー側は `gic.conversation` ロガーに警告ログを出します。
+
+### キャンセルと設定保存の決め事
+
+- **キャンセル**: 進行中の会話ターンは利用者が途中でやめられる。テキスト会話は同期 REST のため、キャンセルはクライアントアプリ側のリクエスト中断と画面上の破棄まで。会話サーバー側の LLM / 読み上げ処理は完了まで続き、その間は busy（409）になりうる。
+- **設定保存**: 設定パネルを閉じたときに変更があれば自動保存する（保存ボタンなし）。設定保存は履歴クリアを伴う。変更がなければ保存しない。
+- **読み上げ音量**: 端末ごとの値としてクライアントアプリの localStorage にだけ保存し、会話サーバーへは送らない。
 
 ---
 
@@ -165,14 +171,14 @@ flowchart TB
 
 ## 5. デプロイ構成
 
-標準（推論はデスクトップ PC、操作は MacBook）:
+標準（推論PCで推論、MacBook で操作）:
 
 ```mermaid
 flowchart LR
     subgraph mac["MacBook"]
       cl["クライアント"]
     end
-    subgraph pc["デスクトップ PC"]
+    subgraph pc["推論PC (Windows)"]
       cs["会話サーバー :8000 (WSL)"]
       ol["Ollama :11434 (Windows)"]
       tt["Irodori-TTS :8088 (WSL)"]
@@ -192,13 +198,12 @@ flowchart LR
 - [0002 LAN-only](./adr/0002-lan-only-conversation-server.md): 推論・会話サーバーは LAN 内前提（認証・公開を MVP の必須にしない）。
 - [0003 Svelte](./adr/0003-use-svelte-for-client-ui.md): クライアント UI は Svelte。
 
-（補足: 一度サーバー側 STT を入れたが、音声経路は LAN 限定の対象外という整理で revert。音声入力は Web Speech API のまま。経緯は [Handoff](./handoff.md)。）
+（補足: 一度サーバー側 STT を入れたが、音声入力の文字起こし経路は LAN 限定の対象外という整理で revert。音声入力は Web Speech API のまま。）
 
 ---
 
 ## 関連ドキュメント
 
-- [Handoff](./handoff.md) — 現在地・実装済み・次の作業
+- [Scripts & Server Startup](./scripts-and-startup.md) — スクリプトと起動の仕組み
 - [Verification Guide](./verification.md) — 動作確認手順
 - [Tauri Setup](./tauri-setup.md) — デスクトップアプリ化
-- [Design Notes](./design.md) / [UI Implementation Plan](./ui-implementation-plan.md)

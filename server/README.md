@@ -16,20 +16,14 @@ GIC_TTS_BASE_URL=http://127.0.0.1:8088
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+通常は環境別の起動スクリプトを使います（WSL標準構成は `../scripts/wsl/`、MacBookローカルは `../scripts/mac/`）。各スクリプトの役割は [`docs/scripts-and-startup.md`](../docs/scripts-and-startup.md) を参照してください。
+
 MacBookローカルで使う場合は `gemma4:e4b-mlx` を既定にした専用スクリプトを使います。
 このスクリプトはIrodoriの初回モデルロードに備えて `GIC_REQUEST_TIMEOUT_SECONDS=600` を既定にします。
 
 ```sh
 ../scripts/mac/start-conversation-server-mac.sh
 ```
-
-OllamaとIrodori-TTS-Serverをまとめて起動する場合:
-
-```sh
-../scripts/start-inference-stack.sh
-```
-
-この起動スクリプトはAMD GPU前提で、Irodori-TTS-Serverを `uv run --extra rocm` で起動します。
 
 ## 読み上げの声質を固定する (`GIC_TTS_SEED`)
 
