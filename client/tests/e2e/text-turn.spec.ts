@@ -259,11 +259,14 @@ test("saves settings when the panel closes and clears conversation history", asy
   await page.getByRole("button", { name: "設定", exact: true }).click();
   await page.getByLabel("キャラクター名").fill("リノン");
   await page.getByLabel("キャラクター設定").fill("リノンは若い女性の会話相手として、やわらかく短く返す。");
-  await expect(page.locator(".persona-line")).toContainText("リノンは若い女性の会話相手として、やわらかく短く返す。");
   await page.getByRole("button", { name: "フレンドリー" }).click();
   await page.getByLabel("距離感").fill("75");
   await expect(page.locator(".slider-row").filter({ hasText: "距離感" }).locator(".v")).toHaveText("親しい");
-  await expect(page.locator(".persona-line")).toContainText("口調: フレンドリー / 距離感: 親しい");
+  // パネル操作中は、背景のキャラクター表示(キャラクターレール)へ反映しない
+  await expect(page.locator(".persona-line")).not.toContainText(
+    "リノンは若い女性の会話相手として、やわらかく短く返す。",
+  );
+  await expect(page.locator(".persona-line")).not.toContainText("口調: フレンドリー / 距離感: 親しい");
   await page.getByLabel("話す速さ").fill("1.15");
   await expect(page.getByText("1.15×")).toBeVisible();
   await page.getByRole("button", { name: "設定を閉じる" }).click();

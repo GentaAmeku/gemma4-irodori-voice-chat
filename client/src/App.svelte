@@ -64,10 +64,10 @@
   let threadEl = $state<HTMLDivElement>();
   let textareaEl = $state<HTMLTextAreaElement>();
 
-  // パネル表示中と保存中はドラフトを表示し、保存成功でそのままサーバー値へ引き継ぐ
-  const previewSettings = $derived((settingsOpen || savingSettings) && settingsDraft ? settingsDraft : settings);
-  const characterName = $derived(previewSettings?.character_name ?? "黒瀬 怜奈");
-  const characterPromptPreview = $derived(previewSettings ? buildCharacterPromptPreview(previewSettings) : "");
+  // 背景のキャラクター名・キャラクター設定は保存済みの設定のみを表示する
+  // (パネル操作中のドラフトは、閉じて設定保存されるまで反映しない)
+  const characterName = $derived(settings?.character_name ?? "黒瀬 怜奈");
+  const characterPromptPreview = $derived(settings ? buildCharacterPromptPreview(settings) : "");
   const canConverse = $derived(displayState === "ready" && textInput.trim().length > 0);
   const characterImageUrl = $derived(`${baseUrl.replace(/\/+$/, "")}/api/character-image?v=${imageVersion}`);
   const statusItems = $derived(buildStatusItems(health, displayState, baseUrl));
