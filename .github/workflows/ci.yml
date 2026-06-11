@@ -1,0 +1,66 @@
+# 自動チェック一式。pre-commit / Claude Code フックと同じ内容を CI でも保証する。
+# 内訳: server(ruff + pytest) / client(prettier + svelte-check + build + Playwright E2E) / scripts(bash -n)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run pytest
+
+  client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+      # E2E はモックの会話サーバー(uv)を Playwright が自動起動する
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+        working-directory: server
+      - run: pnpm install --frozen-lockfile
+        working-directory: client
+      - run: pnpm format:check
+        working-directory: client
+      - run: pnpm check
+        working-directory: client
+      - run: pnpm build
+        working-directory: client
+      # Playwright のブラウザをキャッシュ(ロックファイルが変わらない限り再ダウンロードしない)
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('client/pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: client
+      - run: pnpm test:e2e
+        working-directory: client
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n scripts/*.sh scripts/mac/*.sh scripts/wsl/*.sh

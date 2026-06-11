@@ -1,28 +1,46 @@
 #!/usr/bin/env bash
 # ツール非依存の pre-commit フック。
-# ステージされた client 配下のファイルを prettier 整形して再ステージし、svelte-check を実行する。
+# - client: ステージされたファイルを prettier 整形して再ステージし、svelte-check を実行
+# - server: ステージされた .py を ruff format で整形して再ステージし、ruff check + pytest を実行
 # Claude Code / Codex / 人間など、どのツールのコミットでも同じ format/lint を強制する。
 # 有効化: git config core.hooksPath .githooks
 set -euo pipefail
 
 repo=$(git rev-parse --show-toplevel)
+staged_all=$(git diff --cached --name-only --diff-filter=ACM)
 
-staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^client/' || true)
-[ -n "$staged" ] || exit 0
+# --- client ---
+staged_client=$(printf '%s\n' "$staged_all" | grep -E '^client/' || true)
+if [ -n "$staged_client" ]; then
+  prettier="$repo/client/node_modules/.bin/prettier"
 
-prettier="$repo/client/node_modules/.bin/prettier"
+  # 1) prettier 対象を整形して再ステージ
+  fmt=$(printf '%s\n' "$staged_client" | grep -E '\.(svelte|ts|js|css|json|html|md)$' || true)
+  if [ -n "$fmt" ] && [ -x "$prettier" ]; then
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      (cd "$repo/client" && "$prettier" --write --ignore-unknown "${path#client/}")
+      git add -- "$path"
+    done <<<"$fmt"
+  fi
 
-# 1) prettier 対象を整形して再ステージ
-fmt=$(printf '%s\n' "$staged" | grep -E '\.(svelte|ts|js|css|json|html|md)$' || true)
-if [ -n "$fmt" ] && [ -x "$prettier" ]; then
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    (cd "$repo/client" && "$prettier" --write --ignore-unknown "${path#client/}")
-    git add -- "$path"
-  done <<<"$fmt"
+  # 2) svelte-check(.svelte/.ts/.js がステージされたときのみ)
+  if printf '%s\n' "$staged_client" | grep -qE '\.(svelte|ts|js)$'; then
+    (cd "$repo/client" && pnpm -s check)
+  fi
 fi
 
-# 2) svelte-check(.svelte/.ts/.js がステージされたときのみ)
-if printf '%s\n' "$staged" | grep -qE '\.(svelte|ts|js)$'; then
-  (cd "$repo/client" && pnpm -s check)
+# --- server ---
+staged_server=$(printf '%s\n' "$staged_all" | grep -E '^server/.*\.py$' || true)
+if [ -n "$staged_server" ]; then
+  # 1) ruff format で整形して再ステージ
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    (cd "$repo/server" && uv run -q ruff format "${path#server/}")
+    git add -- "$path"
+  done <<<"$staged_server"
+
+  # 2) lint + テスト(失敗するとコミットを中止)
+  (cd "$repo/server" && uv run -q ruff check .)
+  (cd "$repo/server" && uv run -q pytest -q)
 fi

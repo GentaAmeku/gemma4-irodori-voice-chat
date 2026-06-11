@@ -18,8 +18,8 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/check-on-stop.sh\"",
-            "timeout": 90,
-            "statusMessage": "svelte-check を実行中…"
+            "timeout": 120,
+            "statusMessage": "コードチェック(svelte-check / ruff / pytest)を実行中…"
           }
         ]
       }

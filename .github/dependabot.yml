@@ -1,0 +1,37 @@
+# 依存更新の自動化。
+# - patch / minor は ecosystem ごとに1つのPRへまとめ、CI が通れば自動マージ
+#   (.github/workflows/dependabot-automerge.yml)
+# - major はグループに含めず、依存ごとに別PRが作られる(人間がレビューしてマージ)
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: uv
+    directory: /server
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: cargo
+    directory: /client/src-tauri
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]

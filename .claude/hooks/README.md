@@ -1,27 +1,29 @@
 # Claude Code フック
 
-トークン消費を抑えるため、format / 型チェックを Claude の手動実行から外し、ハーネスのフックへ移したもの。設定は [`.claude/settings.json`](../settings.json) を参照。
+トークン消費を抑えるため、format / チェックを Claude の手動実行から外し、ハーネスのフックへ移したもの。設定は [`.claude/settings.json`](../settings.json) を参照。
 
 ## フック
 
 ### `format-file.sh` — PostToolUse(Write|Edit)
 
-Claude が `client/` 配下のファイルを書き換えるたびに、その**1ファイルだけ**を `prettier --write` で整形する。
+Claude がファイルを書き換えるたびに、その**1ファイルだけ**を整形する。
 
+- `client/` 配下: `prettier --write` で整形。扱えない拡張子・`.prettierignore` 対象は `--ignore-unknown` でスキップ。`.svelte` / `.ts` / `.js` を触ったときは Stop フック用に `.claude/.needs-check-client` マーカーを置く。
+- `server/` 配下: `.py` を `uv run ruff format` で整形し、`.claude/.needs-check-server` マーカーを置く。
 - 成功時は無言・非ブロッキング(Claude は整形を自分でやらないのでトークンを使わない)。
-- `prettier` が扱えない拡張子・`.prettierignore` 対象は `--ignore-unknown` でスキップ。
-- `.svelte` / `.ts` / `.js` を触ったときは、Stop フック用に `.claude/.needs-check` マーカーを置く。
 
 ### `check-on-stop.sh` — Stop
 
-Claude がターンを終えようとしたとき、**コード変更があった場合のみ** `pnpm -s check`(svelte-check)を実行する。
+Claude がターンを終えようとしたとき、**コード変更があった場合のみ**チェックを実行する。
 
+- client マーカーあり: `pnpm -s check`(svelte-check)
+- server マーカーあり: `uv run ruff check` + `uv run pytest`
 - マーカーが無いターン(質問への回答など)では何もしない=ムダに走らせない。
 - 成功時は無言でマーカーを消して停止を許可。
 - 失敗時のみ `{"decision":"block","reason": <エラー全文>}` を返し、Claude にエラーを差し戻して修正させる。
 - 無限ループ防止のため試行回数を 4 回でキャップする(`.claude/.check-attempts`)。
 
-`.needs-check` / `.check-attempts` は内部状態。`.gitignore` 済み。
+`.needs-check-*` / `.check-attempts` は内部状態。`.gitignore` 済み。
 
 ## 有効化
 
