@@ -68,7 +68,9 @@ flowchart LR
 
 ### MacBookなど別端末から使う場合（標準構成）
 
-推論PC側は上のクイックスタート手順1〜4と同じです。加えて、LAN公開のために初回のみWindowsの管理者PowerShellで portproxy タスクを登録します。
+推論PC側は上のクイックスタート手順1〜4と同じです。初回の `./scripts/wsl/start-desktop-stack.sh` は、LAN公開に必要な portproxy タスクが未登録なら Windows の UAC 昇格ダイアログを開いて登録を試みます。
+
+UAC が出ない、または登録に失敗する場合だけ、Windowsの管理者PowerShellで手動登録します。
 
 ```powershell
 .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <推論PCのIP>

@@ -64,7 +64,7 @@ flowchart LR
 |---|---|
 | `setup-irodori-wsl-amd.sh` | `../Irodori-TTS-Server`（caption対応のGentaAmekuフォーク）を clone し `uv sync --extra rocm`（AMD GPU） |
 | `setup-voicedesign-wsl-amd.sh` | `../Irodori-TTS` を clone し `uv sync --extra rocm`。VoiceDesign での参照音声サンプル生成用 |
-| `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。日常起動の推奨入口 |
+| `start-desktop-stack.sh` | Irodori を必要時だけバックグラウンド起動し、Windows portproxy refresh を試み、会話サーバーを起動。portproxy タスク未登録時は Windows UAC 昇格で初回登録を試みる。日常起動の推奨入口 |
 | `start-irodori-wsl-amd.sh` | Irodori を `rocm` で起動（`0.0.0.0:8088`） |
 | `start-conversation-server-wsl.sh` | 会話サーバーを **`0.0.0.0:8000`** で起動（LAN 公開して MacBook から届くように）。Ollama ホストを自動解決（後述） |
 | `start-client-wsl.sh` | Web クライアントを WSL 内で起動（`node_modules` がなければ `pnpm install` を自動実行）。**Windows PC 1台で完結する構成**用（Windows のブラウザから `http://localhost:5173` を開く） |
@@ -153,10 +153,9 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```text
 1. (Windows) Ollama を起動し、gemma4:12b を pull 済みにする
 2. (WSL・初回のみ) ./scripts/wsl/setup-irodori-wsl-amd.sh
-3. (Windows・初回のみ/管理者 PowerShell) .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <推論PCのIP>
-4. (WSL) ./scripts/wsl/start-desktop-stack.sh
-5. (Mac) クライアントの接続先を http://<推論PCのIP>:8000 にする
-6. (任意) ./scripts/wsl/check-wsl-stack.sh で確認
+3. (WSL) ./scripts/wsl/start-desktop-stack.sh（初回は Windows UAC で portproxy タスク登録を試みる）
+4. (Mac) クライアントの接続先を http://<推論PCのIP>:8000 にする
+5. (任意) ./scripts/wsl/check-wsl-stack.sh で確認
 ```
 
 `start-desktop-stack.sh` は Irodori をバックグラウンド起動し、会話サーバーを起動します。会話サーバーのログを表示し続けるため、止めるときはそのターミナルで `Ctrl-C` します。Irodori はバックグラウンドに残るので、完全に止めたい場合は `.logs/irodori-wsl.pid` の PID を終了します。

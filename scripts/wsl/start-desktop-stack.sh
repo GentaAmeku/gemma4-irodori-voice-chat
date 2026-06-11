@@ -14,12 +14,16 @@ GIC_TTS_BASE_URL="${GIC_TTS_BASE_URL:-http://127.0.0.1:$IRODORI_PORT}"
 WINDOWS_PORTPROXY_TASK="${GIC_WINDOWS_PORTPROXY_TASK:-Gemma4 Irodori Chat Refresh PortProxy}"
 SERVER_PID=""
 SERVER_ALREADY_RUNNING=0
+IRODORI_STATUS="未実行"
+PORTPROXY_STATUS="未実行"
+CONVERSATION_STATUS="未実行"
+LAN_HEALTH_STATUS="未確認"
 
 mkdir -p "$LOG_DIR"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "missing command: $1" >&2
+    echo "エラー: 必要なコマンドが見つかりません: $1" >&2
     exit 1
   fi
 }
@@ -30,12 +34,12 @@ wait_http() {
   local attempts="${3:-60}"
   for _ in $(seq 1 "$attempts"); do
     if curl -fsS "$url" >/dev/null 2>&1; then
-      echo "$name ready: $url"
+      echo "OK: $name の起動を確認しました: $url"
       return 0
     fi
     sleep 1
   done
-  echo "$name did not become ready: $url" >&2
+  echo "エラー: $name の起動を確認できませんでした: $url" >&2
   return 1
 }
 
@@ -53,7 +57,7 @@ resolve_ollama_host() {
   local windows_host
   windows_host="$(ip route show default | awk '{print $3; exit}')"
   if [ -z "$windows_host" ]; then
-    echo "Could not resolve Windows host IP. Set OLLAMA_HOST manually." >&2
+    echo "エラー: WSL から見た Windows ホスト IP を解決できませんでした。OLLAMA_HOST を手動指定してください。" >&2
     exit 1
   fi
   echo "${windows_host}:11434"
@@ -88,6 +92,50 @@ task_exists() {
     powershell.exe -NoProfile -Command "if (Get-ScheduledTask -TaskName '$WINDOWS_PORTPROXY_TASK' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >/dev/null 2>&1
 }
 
+powershell_is_elevated() {
+  command -v powershell.exe >/dev/null 2>&1 &&
+    powershell.exe -NoProfile -Command "\$identity = [Security.Principal.WindowsIdentity]::GetCurrent(); \$principal = [Security.Principal.WindowsPrincipal]::new(\$identity); if (\$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 0 } else { exit 1 }" >/dev/null 2>&1
+}
+
+install_portproxy_task_elevated() {
+  local lan_ip="$1"
+  local install_script
+  install_script="$(wslpath -w "$ROOT_DIR/scripts/windows/install-portproxy-refresh-task.ps1")"
+
+  echo "情報: Windows portproxy 更新タスクが未登録です。"
+  echo "情報: 初回登録のため、Windows の UAC 昇格ダイアログを開きます。"
+
+  local ps_command
+  ps_command="\$arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '$install_script', '-Port', '$GIC_APP_PORT', '-TaskName', '$WINDOWS_PORTPROXY_TASK')"
+  if [ -n "$lan_ip" ]; then
+    ps_command="$ps_command; \$arguments += @('-LanIp', '$lan_ip')"
+  fi
+  ps_command="$ps_command; \$process = Start-Process -FilePath 'powershell.exe' -ArgumentList \$arguments -Verb RunAs -Wait -PassThru; exit \$process.ExitCode"
+
+  if ! run_powershell "$ps_command" >/dev/null; then
+    cat >&2 <<EOF
+
+警告: Windows UAC での portproxy 更新タスク登録がキャンセルされたか、失敗しました。
+必要な場合は、Windows の管理者 PowerShell で一度だけ手動登録してください:
+
+  .\\scripts\\windows\\install-portproxy-refresh-task.ps1${lan_ip:+ -LanIp $lan_ip}
+
+EOF
+    return 1
+  fi
+
+  for _ in $(seq 1 10); do
+    if task_exists; then
+      echo "OK: Windows portproxy 更新タスクを登録しました。"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "警告: 登録処理後も Windows portproxy 更新タスクを確認できませんでした。" >&2
+  return 1
+}
+
 wait_task_finished() {
   local state
   for _ in $(seq 1 30); do
@@ -97,7 +145,7 @@ wait_task_finished() {
     fi
     sleep 1
   done
-  echo "Windows scheduled task did not finish within 30 seconds: $WINDOWS_PORTPROXY_TASK" >&2
+  echo "警告: Windows portproxy 更新タスクが 30 秒以内に完了しませんでした: $WINDOWS_PORTPROXY_TASK" >&2
   return 1
 }
 
@@ -105,15 +153,59 @@ refresh_windows_portproxy() {
   local lan_ip="$1"
 
   if ! command -v powershell.exe >/dev/null 2>&1; then
-    echo "powershell.exe is unavailable; skipping Windows portproxy refresh."
+    PORTPROXY_STATUS="スキップ（powershell.exe が見つかりません）"
+    echo "警告: powershell.exe が見つからないため、Windows portproxy 更新をスキップします。"
     return 0
   fi
 
   if task_exists; then
-    echo "Refreshing Windows portproxy via scheduled task..."
-    run_powershell "Start-ScheduledTask -TaskName '$WINDOWS_PORTPROXY_TASK'" >/dev/null
-    wait_task_finished
+    echo "情報: Windows portproxy を登録済みタスク経由で更新します。"
+    if ! run_powershell "Start-ScheduledTask -TaskName '$WINDOWS_PORTPROXY_TASK'" >/dev/null; then
+      PORTPROXY_STATUS="失敗（登録済みタスクを開始できません）"
+      echo "警告: Windows portproxy 更新タスクを開始できませんでした。" >&2
+      return 1
+    fi
+    if ! wait_task_finished; then
+      PORTPROXY_STATUS="失敗（登録済みタスクが完了しません）"
+      return 1
+    fi
+    PORTPROXY_STATUS="OK（登録済みタスクで更新）"
+    echo "OK: Windows portproxy 更新タスクを実行しました。"
     return 0
+  fi
+
+  if install_portproxy_task_elevated "$lan_ip" && task_exists; then
+    echo "情報: Windows portproxy を登録済みタスク経由で更新します。"
+    if ! run_powershell "Start-ScheduledTask -TaskName '$WINDOWS_PORTPROXY_TASK'" >/dev/null; then
+      PORTPROXY_STATUS="失敗（初回登録後のタスク開始に失敗）"
+      echo "警告: Windows portproxy 更新タスクを開始できませんでした。" >&2
+      return 1
+    fi
+    if ! wait_task_finished; then
+      PORTPROXY_STATUS="失敗（初回登録後のタスクが完了しません）"
+      return 1
+    fi
+    PORTPROXY_STATUS="OK（初回登録後に更新）"
+    echo "OK: Windows portproxy 更新タスクを実行しました。"
+    return 0
+  fi
+
+  if ! powershell_is_elevated; then
+    PORTPROXY_STATUS="失敗（管理者権限が必要）"
+    cat >&2 <<EOF
+
+警告: Windows portproxy は更新できませんでした。
+理由: portproxy / Firewall 更新には Windows の管理者権限が必要です。
+対応: UAC ダイアログを承認するか、Windows の管理者 PowerShell で一度だけタスクを登録してください:
+
+  .\\scripts\\windows\\install-portproxy-refresh-task.ps1${lan_ip:+ -LanIp $lan_ip}
+
+その後、WSL で再実行してください:
+
+  ./scripts/wsl/start-desktop-stack.sh
+
+EOF
+    return 1
   fi
 
   local refresh_script
@@ -123,19 +215,22 @@ refresh_windows_portproxy() {
     command="$command -LanIp '$lan_ip'"
   fi
 
-  echo "Refreshing Windows portproxy directly..."
+  echo "情報: Windows portproxy を管理者 PowerShell 権限で直接更新します。"
   if run_powershell "$command"; then
+    PORTPROXY_STATUS="OK（直接更新）"
+    echo "OK: Windows portproxy を直接更新しました。"
     return 0
   fi
 
+  PORTPROXY_STATUS="失敗（直接更新に失敗）"
   cat >&2 <<EOF
 
-Windows portproxy refresh did not run.
-Install the elevated scheduled task once from an administrator PowerShell:
+警告: Windows portproxy は更新できませんでした。
+対応: Windows の管理者 PowerShell で一度だけタスクを登録してください:
 
   .\\scripts\\windows\\install-portproxy-refresh-task.ps1${lan_ip:+ -LanIp $lan_ip}
 
-Then rerun:
+その後、WSL で再実行してください:
 
   ./scripts/wsl/start-desktop-stack.sh
 
@@ -147,47 +242,52 @@ start_irodori() {
   require_command uv
   if [ ! -d "$IRODORI_TTS_SERVER_DIR" ]; then
     cat >&2 <<EOF
-Irodori-TTS-Server directory was not found:
+エラー: Irodori-TTS-Server のディレクトリが見つかりません:
   $IRODORI_TTS_SERVER_DIR
 
-Set it up first:
+先にセットアップしてください:
   ./scripts/wsl/setup-irodori-wsl-amd.sh
 EOF
     exit 1
   fi
 
   if curl -fsS "http://127.0.0.1:$IRODORI_PORT/health" >/dev/null 2>&1; then
-    echo "Irodori-TTS-Server already running: http://127.0.0.1:$IRODORI_PORT"
+    IRODORI_STATUS="OK（起動済み）"
+    echo "OK: Irodori-TTS-Server は既に起動しています: http://127.0.0.1:$IRODORI_PORT"
     return 0
   fi
 
-  echo "Starting Irodori-TTS-Server..."
+  echo "情報: Irodori-TTS-Server を起動します。"
   (
     cd "$IRODORI_TTS_SERVER_DIR"
     nohup uv run --extra "$IRODORI_UV_EXTRA" python -m irodori_openai_tts --host "$IRODORI_HOST" --port "$IRODORI_PORT" >"$LOG_DIR/irodori-wsl.log" 2>&1 &
     echo $! >"$LOG_DIR/irodori-wsl.pid"
   )
   wait_http "http://127.0.0.1:$IRODORI_PORT/health" "Irodori-TTS-Server" 120
+  IRODORI_STATUS="OK（起動しました）"
 }
 
 check_windows_lan_health() {
   local lan_ip="$1"
   if [ -z "$lan_ip" ] || ! command -v powershell.exe >/dev/null 2>&1; then
+    LAN_HEALTH_STATUS="スキップ（Windows LAN IP または powershell.exe なし）"
     return 0
   fi
 
   local url="http://$lan_ip:$GIC_APP_PORT/api/health"
   if run_powershell "Invoke-WebRequest -Uri '$url' -UseBasicParsing -TimeoutSec 5 | Out-Null" >/dev/null 2>&1; then
-    echo "Windows LAN health OK: $url"
+    LAN_HEALTH_STATUS="OK（Windows PC から LAN IP へ到達）"
+    echo "OK: Windows PC から LAN IP の会話サーバーへ到達できました: $url"
     return 0
   fi
 
+  LAN_HEALTH_STATUS="失敗（Windows PC から LAN IP へ到達不可）"
   cat >&2 <<EOF
 
-Windows LAN health failed:
+警告: Windows PC から LAN IP の会話サーバーへ到達できませんでした:
   $url
 
-Run diagnostics from PowerShell:
+診断する場合は Windows PowerShell で実行してください:
   .\\scripts\\windows\\check-lan-portproxy.ps1${lan_ip:+ -LanIp $lan_ip}
 
 EOF
@@ -198,13 +298,14 @@ start_conversation_server() {
   local ollama_host="$1"
 
   if curl -fsS "http://127.0.0.1:$GIC_APP_PORT/api/health" >/dev/null 2>&1; then
-    echo "Conversation server already running: http://127.0.0.1:$GIC_APP_PORT"
+    CONVERSATION_STATUS="OK（起動済み）"
+    echo "OK: 会話サーバーは既に起動しています: http://127.0.0.1:$GIC_APP_PORT"
     SERVER_ALREADY_RUNNING=1
     return 0
   fi
 
   local log_file="$LOG_DIR/conversation-wsl.log"
-  echo "Starting conversation server..."
+  echo "情報: 会話サーバーを起動します。"
   (
     cd "$ROOT_DIR/server"
     GIC_OLLAMA_BASE_URL="http://$ollama_host" \
@@ -217,11 +318,13 @@ start_conversation_server() {
   echo "$SERVER_PID" >"$LOG_DIR/conversation-wsl.pid"
 
   if ! wait_http "http://127.0.0.1:$GIC_APP_PORT/api/health" "Conversation server" 60; then
-    echo "Conversation server failed to start. Recent log:" >&2
+    CONVERSATION_STATUS="失敗（起動できませんでした）"
+    echo "エラー: 会話サーバーを起動できませんでした。直近ログ:" >&2
     tail -80 "$log_file" >&2 || true
     kill "$SERVER_PID" >/dev/null 2>&1 || true
     exit 1
   fi
+  CONVERSATION_STATUS="OK（起動しました）"
 }
 
 require_command curl
@@ -230,10 +333,10 @@ require_command awk
 OLLAMA_HOST_VALUE="$(resolve_ollama_host)"
 if ! curl -fsS "http://$OLLAMA_HOST_VALUE/api/tags" >/dev/null 2>&1; then
   cat >&2 <<EOF
-Windows Ollama is not reachable from WSL:
+エラー: WSL から Windows Ollama へ到達できません:
   http://$OLLAMA_HOST_VALUE/api/tags
 
-Start Windows Ollama and confirm:
+Windows 側で Ollama を起動し、確認してください:
   ollama list
 EOF
   exit 1
@@ -242,11 +345,11 @@ fi
 WSL_IP="$(hostname -I | awk '{print $1}')"
 LAN_IP="$(resolve_windows_lan_ip || true)"
 
-echo "Desktop WSL stack"
-echo "  WSL IP:         ${WSL_IP:-unknown}"
-echo "  Windows LAN IP: ${LAN_IP:-unknown}"
-echo "  Ollama:         http://$OLLAMA_HOST_VALUE"
-echo "  Irodori:        $GIC_TTS_BASE_URL"
+echo "Gemma4 Irodori Chat: WSL スタック起動"
+echo "  WSL IP:          ${WSL_IP:-不明}"
+echo "  Windows LAN IP:  ${LAN_IP:-不明}"
+echo "  Ollama:          http://$OLLAMA_HOST_VALUE"
+echo "  Irodori:         $GIC_TTS_BASE_URL"
 echo ""
 
 start_irodori
@@ -256,24 +359,30 @@ check_windows_lan_health "$LAN_IP" || true
 
 cat <<EOF
 
-Desktop stack is ready.
+起動結果:
+  Irodori-TTS:      $IRODORI_STATUS
+  portproxy更新:    $PORTPROXY_STATUS
+  会話サーバー:      $CONVERSATION_STATUS
+  LAN疎通確認:      $LAN_HEALTH_STATUS
 
-Local:
+会話サーバーは利用可能です。
+
+ローカル確認:
   http://127.0.0.1:$GIC_APP_PORT/api/health
-LAN:
+LAN確認:
   ${LAN_IP:+http://$LAN_IP:$GIC_APP_PORT/api/health}
 
-Logs:
+ログ:
   $LOG_DIR/irodori-wsl.log
   $LOG_DIR/conversation-wsl.log
 EOF
 
 if [ "$SERVER_ALREADY_RUNNING" -eq 1 ]; then
-  echo "Conversation server was already running; leaving it untouched."
+  echo "情報: 会話サーバーは既に起動していたため、このスクリプトでは停止管理しません。"
   exit 0
 fi
 
-echo "Press Ctrl-C to stop the conversation server. Irodori remains running in the background."
+echo "停止するには Ctrl-C を押してください。会話サーバーを停止します。Irodori はバックグラウンドに残ります。"
 echo ""
 
 tail -n +1 -f "$LOG_DIR/conversation-wsl.log" &
@@ -282,7 +391,7 @@ TAIL_PID=$!
 cleanup() {
   kill "$TAIL_PID" >/dev/null 2>&1 || true
   if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" >/dev/null 2>&1; then
-    echo "Stopping conversation server..."
+    echo "情報: 会話サーバーを停止します。"
     kill "$SERVER_PID" >/dev/null 2>&1 || true
   fi
 }

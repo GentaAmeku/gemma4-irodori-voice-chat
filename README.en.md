@@ -68,7 +68,9 @@ Common first-run pitfalls:
 
 ### Using another device as the client (standard setup)
 
-On the inference PC, follow steps 1–4 of the quick start. Additionally, register the portproxy task once from an administrator PowerShell to expose the server to the LAN:
+On the inference PC, follow steps 1–4 of the quick start. On the first run, `./scripts/wsl/start-desktop-stack.sh` tries to open a Windows UAC prompt and register the portproxy task needed for LAN exposure.
+
+If the UAC prompt does not appear or the registration fails, register it manually from an administrator PowerShell:
 
 ```powershell
 .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp <inference-pc-lan-ip>

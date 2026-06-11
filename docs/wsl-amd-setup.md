@@ -342,13 +342,13 @@ MacBook
 
 WSL2の既定NAT構成では、LAN内の別端末からWSL上のサーバーへ直接届かないことがあります。その場合は、Windows 11 22H2以降ならWSL mirrored networkingを使うか、Windows側でportproxyを設定します。
 
-標準運用では、管理者 PowerShell で一度だけ portproxy refresh タスクを登録します。
+標準運用では、`./scripts/wsl/start-desktop-stack.sh` が初回に Windows の UAC 昇格ダイアログを開き、portproxy refresh タスクの登録を試みます。登録後は、以後の起動でこのタスクを呼び、現在の WSL IP へ portproxy を更新します。
+
+UAC が出ない、または登録に失敗する場合は、管理者 PowerShell で一度だけ手動登録します。
 
 ```powershell
 .\scripts\windows\install-portproxy-refresh-task.ps1 -LanIp 192.168.0.10
 ```
-
-以後、日常起動の `./scripts/wsl/start-desktop-stack.sh` がこのタスクを呼び、現在の WSL IP へ portproxy を更新します。
 
 手動で更新する場合:
 
