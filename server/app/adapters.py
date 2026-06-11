@@ -146,10 +146,27 @@ class IrodoriTtsClient:
             self._write_mock_wav(output)
             return output
 
+        payload = self._speech_payload(text, settings, voice_id=settings.speaker_id)
+        response = await self._post_speech(payload)
+        if (
+            response.status_code == 400
+            and settings.speaker_id != "none"
+            and "Unknown voice" in response.text
+        ):
+            payload = self._speech_payload(text, settings, voice_id="none")
+            response = await self._post_speech(payload)
+
+        self._raise_for_status_with_body(response)
+        output.write_bytes(response.content)
+        return output
+
+    def _speech_payload(
+        self, text: str, settings: AppSettings, *, voice_id: str
+    ) -> dict[str, object]:
         payload: dict[str, object] = {
             "model": self.config.tts_model,
             "input": text,
-            "voice": {"id": settings.speaker_id},
+            "voice": {"id": voice_id},
             "response_format": self.config.tts_response_format,
             "speed": settings.speech_speed,
         }
@@ -165,11 +182,15 @@ class IrodoriTtsClient:
             irodori_options["caption"] = caption
         if irodori_options:
             payload["irodori"] = irodori_options
+        return payload
 
-        response = await self.http.post(
-            f"{self.config.tts_base_url}/v1/audio/speech",
-            json=payload,
+    async def _post_speech(self, payload: dict[str, object]) -> httpx.Response:
+        return await self.http.post(
+            f"{self.config.tts_base_url}/v1/audio/speech", json=payload
         )
+
+    @staticmethod
+    def _raise_for_status_with_body(response: httpx.Response) -> None:
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -179,8 +200,6 @@ class IrodoriTtsClient:
                 request=exc.request,
                 response=exc.response,
             ) from exc
-        output.write_bytes(response.content)
-        return output
 
     def _write_mock_wav(self, output: Path) -> None:
         sample_rate = 16_000

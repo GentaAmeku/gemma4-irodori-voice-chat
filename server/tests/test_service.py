@@ -199,6 +199,35 @@ async def test_tts_request_omits_irodori_when_seed_disabled_and_caption_blank(
 
 
 @pytest.mark.asyncio
+async def test_tts_unknown_voice_falls_back_to_none(tmp_path: Path) -> None:
+    captured_voices: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content.decode("utf-8"))
+        voice_id = payload["voice"]["id"]
+        captured_voices.append(voice_id)
+        if voice_id == "rena":
+            return httpx.Response(
+                400,
+                json={
+                    "error": {"message": "\"Unknown voice='rena'. Use voice='none'.\""}
+                },
+            )
+        return httpx.Response(200, content=b"RIFF")
+
+    config = AppConfig(
+        mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        client = IrodoriTtsClient(config, http_client)
+        output = await client.synthesize("こんにちは。", AppSettings(speaker_id="rena"))
+
+    assert output.read_bytes() == b"RIFF"
+    assert captured_voices == ["rena", "none"]
+
+
+@pytest.mark.asyncio
 async def test_ollama_request_includes_tone_and_distance_prompt(tmp_path: Path) -> None:
     captured_json: dict[str, object] = {}
 
