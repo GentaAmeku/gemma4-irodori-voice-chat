@@ -24,6 +24,65 @@ resolve_ollama_base_url() {
 OLLAMA_BASE_URL="$(resolve_ollama_base_url)"
 TTS_BASE_URL="${GIC_TTS_BASE_URL:-http://127.0.0.1:8088}"
 APP_BASE_URL="${GIC_APP_BASE_URL:-http://127.0.0.1:8000}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+LOG_DIR="${GIC_LOG_DIR:-"$ROOT_DIR/.logs"}"
+
+print_log_tail() {
+  local label="$1"
+  local path="$2"
+  if [ -f "$path" ]; then
+    echo
+    echo "---- ${label}: ${path} (tail -80) ----"
+    tail -80 "$path" || true
+  fi
+}
+
+post_json_check() {
+  local label="$1"
+  local url="$2"
+  local payload="$3"
+  local output_mode="${4:-text}"
+  local output_file
+  local status
+  output_file="$(mktemp)"
+
+  echo "$label"
+  if ! status="$(
+    curl -sS \
+      --max-time 360 \
+      -o "$output_file" \
+      -w "%{http_code}" \
+      -X POST "$url" \
+      -H "Content-Type: application/json" \
+      -d "$payload"
+  )"; then
+    echo "ERROR: curl failed while calling $url" >&2
+    echo "Response body:" >&2
+    cat "$output_file" >&2 || true
+    echo >&2
+    rm -f "$output_file"
+    return 1
+  fi
+
+  if [[ "$status" =~ ^2 ]]; then
+    echo "OK: HTTP $status"
+    if [ "$output_mode" = "bytes" ]; then
+      wc -c "$output_file"
+    else
+      cat "$output_file"
+      echo
+    fi
+    rm -f "$output_file"
+    return 0
+  fi
+
+  echo "ERROR: HTTP $status" >&2
+  echo "Response body:" >&2
+  cat "$output_file" >&2 || true
+  echo >&2
+  rm -f "$output_file"
+  return 1
+}
 
 echo "Checking Ollama..."
 echo "$OLLAMA_BASE_URL"
@@ -42,9 +101,24 @@ echo "Checking conversation server health..."
 curl -fsS "$APP_BASE_URL/api/health"
 echo
 
+echo "Checking direct Irodori-TTS speech synthesis..."
+if ! post_json_check \
+  "POST $TTS_BASE_URL/v1/audio/speech" \
+  "$TTS_BASE_URL/v1/audio/speech" \
+  '{"model":"irodori-tts","input":"TTS直接疎通の確認です。","voice":{"id":"none"},"response_format":"wav","speed":1.0,"irodori":{"seed":1234567}}' \
+  "bytes"; then
+  print_log_tail "Irodori-TTS log" "$LOG_DIR/irodori-wsl.log"
+  exit 1
+fi
+echo
+
 echo "Checking text turn..."
-curl -fsS \
-  -X POST "$APP_BASE_URL/api/turns/text" \
-  -H "Content-Type: application/json" \
-  -d '{"text":"WSL実接続の確認です。短く返事してください。"}'
+if ! post_json_check \
+  "POST $APP_BASE_URL/api/turns/text" \
+  "$APP_BASE_URL/api/turns/text" \
+  '{"text":"WSL実接続の確認です。短く返事してください。"}'; then
+  print_log_tail "Conversation server log" "$LOG_DIR/conversation-wsl.log"
+  print_log_tail "Irodori-TTS log" "$LOG_DIR/irodori-wsl.log"
+  exit 1
+fi
 echo

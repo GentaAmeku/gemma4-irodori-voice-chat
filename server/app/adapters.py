@@ -170,7 +170,15 @@ class IrodoriTtsClient:
             f"{self.config.tts_base_url}/v1/audio/speech",
             json=payload,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            body = response.text[:2000]
+            raise httpx.HTTPStatusError(
+                f"{exc}; response body: {body!r}",
+                request=exc.request,
+                response=exc.response,
+            ) from exc
         output.write_bytes(response.content)
         return output
 
