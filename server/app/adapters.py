@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
+import logging
 import math
 import wave
 
@@ -15,6 +16,9 @@ from .models import (
     SpeakerOption,
     build_character_system_prompt,
 )
+
+
+logger = logging.getLogger("gic.tts")
 
 
 class OllamaClient:
@@ -146,19 +150,44 @@ class IrodoriTtsClient:
             self._write_mock_wav(output)
             return output
 
-        payload = self._speech_payload(text, settings, voice_id=settings.speaker_id)
+        voice_id = settings.speaker_id
+        payload = self._speech_payload(text, settings, voice_id=voice_id)
         response = await self._post_speech(payload)
         if (
             response.status_code == 400
             and settings.speaker_id != "none"
             and "Unknown voice" in response.text
         ):
-            payload = self._speech_payload(text, settings, voice_id="none")
+            # no-refへのフォールバックは声が別人になりうるため、必ず痕跡を残す。
+            logger.warning(
+                "TTS(irodori) speaker %r is not registered; falling back to "
+                "no-ref voice 'none'. Re-register the reference voice to fix.",
+                settings.speaker_id,
+            )
+            voice_id = "none"
+            payload = self._speech_payload(text, settings, voice_id=voice_id)
             response = await self._post_speech(payload)
 
         self._raise_for_status_with_body(response)
+        self._log_synthesis_result(response, voice_id)
         output.write_bytes(response.content)
         return output
+
+    @staticmethod
+    def _log_synthesis_result(response: httpx.Response, voice_id: str) -> None:
+        # Irodori-TTSは使用シードと注意(参照音声の無視・ランダムシード使用など)を
+        # レスポンスヘッダーで返す。注意があるときは声質が変わった可能性が高い。
+        seed = response.headers.get("x-irodori-seed")
+        messages = response.headers.get("x-irodori-messages")
+        if messages:
+            logger.warning(
+                "TTS(irodori) synthesized voice=%s seed=%s with server messages: %s",
+                voice_id,
+                seed,
+                messages,
+            )
+        else:
+            logger.info("TTS(irodori) synthesized voice=%s seed=%s", voice_id, seed)
 
     def _speech_payload(
         self, text: str, settings: AppSettings, *, voice_id: str

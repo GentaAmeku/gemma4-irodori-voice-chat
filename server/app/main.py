@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+import logging
 import re
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -48,7 +49,20 @@ TURN_ERROR_STATUS = {
 }
 
 
+def _configure_app_logging() -> None:
+    # uvicornは自前のロガーしか設定しないため、そのままではアプリ側の
+    # INFOログ(読み上げの話者・シード記録など)がどこにも出力されない。
+    # "gic" 階層にだけハンドラを付け、uvicorn側の設定には触れない。
+    gic_logger = logging.getLogger("gic")
+    if not gic_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        gic_logger.addHandler(handler)
+        gic_logger.setLevel(logging.INFO)
+
+
 def create_app(config: AppConfig | None = None) -> FastAPI:
+    _configure_app_logging()
     app_config = config or load_config()
     app_config.data_dir.mkdir(parents=True, exist_ok=True)
     app_config.audio_dir.mkdir(parents=True, exist_ok=True)

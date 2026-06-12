@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import httpx
@@ -284,7 +285,9 @@ async def test_tts_request_omits_irodori_when_seed_disabled_and_caption_blank(
 
 
 @pytest.mark.asyncio
-async def test_tts_unknown_voice_falls_back_to_none(tmp_path: Path) -> None:
+async def test_tts_unknown_voice_falls_back_to_none(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     captured_voices: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -306,10 +309,58 @@ async def test_tts_unknown_voice_falls_back_to_none(tmp_path: Path) -> None:
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
         client = IrodoriTtsClient(config, http_client)
-        output = await client.synthesize("こんにちは。", AppSettings(speaker_id="rena"))
+        with caplog.at_level(logging.WARNING, logger="gic.tts"):
+            output = await client.synthesize(
+                "こんにちは。", AppSettings(speaker_id="rena")
+            )
 
     assert output.read_bytes() == b"RIFF"
     assert captured_voices == ["rena", "none"]
+    # 声が別人になりうるフォールバックは無音で起きてはならない
+    fallback_logs = [
+        record.getMessage()
+        for record in caplog.records
+        if "falling back" in record.getMessage()
+    ]
+    assert len(fallback_logs) == 1
+    assert "'rena'" in fallback_logs[0]
+
+
+@pytest.mark.asyncio
+async def test_tts_logs_seed_and_server_messages(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=b"RIFF",
+            headers={
+                "X-Irodori-Seed": "1234567",
+                "X-Irodori-Messages": (
+                    "info: speaker conditioning is disabled for this checkpoint; "
+                    "ignoring reference input."
+                ),
+            },
+        )
+
+    config = AppConfig(
+        mock_services=False, data_dir=tmp_path, audio_dir=tmp_path / "audio"
+    )
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        client = IrodoriTtsClient(config, http_client)
+        with caplog.at_level(logging.WARNING, logger="gic.tts"):
+            await client.synthesize("こんにちは。", AppSettings(speaker_id="rena"))
+
+    # 参照音声が無視されたなどの注意はWARNINGで残す(声質変化の手がかり)
+    message_logs = [
+        record.getMessage()
+        for record in caplog.records
+        if "ignoring reference input" in record.getMessage()
+    ]
+    assert len(message_logs) == 1
+    assert "voice=rena" in message_logs[0]
+    assert "seed=1234567" in message_logs[0]
 
 
 @pytest.mark.asyncio
