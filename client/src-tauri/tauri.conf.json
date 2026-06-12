@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Irodori Chat",
+  "productName": "Irodori Voice",
   "version": "0.1.0",
   "identifier": "com.gentaameku.irodorichat",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Irodori Chat",
+        "title": "Irodori Voice",
         "width": 1120,
         "height": 760,
         "minWidth": 640,

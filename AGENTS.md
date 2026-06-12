@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Gemma4 Irodori Chat — コーディングエージェント共通の作業ガイド(Claude Code / Codex など)。
+Irodori Voice — コーディングエージェント共通の作業ガイド(Claude Code / Codex など)。
 
 ## 構成
 

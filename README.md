@@ -1,8 +1,8 @@
-# Gemma4 Irodori Chat
+# Irodori Voice
 
 日本語 | [English](./README.en.md)
 
-ローカルLLMをサーバー機（Windows + AMD GPU / WSL）で動かし、テキスト解析と音声出力を行うAI会話アプリです。Gemma4（LLM）と Irodori-TTS（読み上げ）を使って、AIキャラクターとの日本語音声会話を試すための研究プロジェクトです。
+ローカルLLMをサーバー機（Windows + AMD GPU / WSL）で動かし、テキスト解析と音声出力を行うAI音声会話アプリです。現在は Gemma4（LLM）と Irodori-TTS（読み上げ）を使って、AIキャラクターとの日本語音声会話を試すための研究プロジェクトです。
 
 テキストまたは音声で話しかけると、ローカルで動くLLMが返答を生成し、キャラクターが読み上げ音声で返事をします。クラウドのLLM APIは使わず、推論はすべて自分のPC（同一LAN内）で完結します。
 
@@ -11,7 +11,7 @@
 
 サーバー機を用意せず、PC 1台だけで動かすこともできます。セットアップ手順は[動かし方（3つの構成）](#動かし方3つの構成)と、各構成のセットアップガイド（[WSL AMD Setup](./docs/wsl-amd-setup.md) / [MacBook Local Setup](./docs/macbook-local-setup.md)）を参考にしてください。
 
-![Irodori Chat のスクリーンショット: キャラクター画像と日本語の会話スレッド、読み上げ音声プレイヤー、音声入力欄](./docs/assets/screenshot.png)
+![Irodori Voice のスクリーンショット: キャラクター画像と日本語の会話スレッド、読み上げ音声プレイヤー、音声入力欄](./docs/assets/screenshot.png)
 
 ## 全体像
 

@@ -1,7 +1,7 @@
 [project]
 name = "gemma4-irodori-chat-server"
 version = "0.1.0"
-description = "Conversation server for Gemma4 Irodori Chat"
+description = "Conversation server for Irodori Voice"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

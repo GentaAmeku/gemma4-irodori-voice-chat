@@ -1,8 +1,8 @@
-# Gemma4 Irodori Chat
+# Irodori Voice
 
 [日本語](./README.md) | English
 
-A conversational AI app that runs a local LLM on a server machine (Windows + AMD GPU / WSL) for text understanding and voice output. This is a research project for trying out Japanese voice conversations with an AI character, powered by Gemma4 (LLM) and Irodori-TTS (text-to-speech).
+A local AI voice conversation app that runs a local LLM on a server machine (Windows + AMD GPU / WSL) for text understanding and voice output. This is a research project for trying out Japanese voice conversations with an AI character, currently powered by Gemma4 (LLM) and Irodori-TTS (text-to-speech).
 
 Talk to it by text or voice: the locally running LLM generates a reply, and the character answers with synthesized speech. No cloud LLM APIs are used — all inference stays on your own PCs within the same LAN.
 
@@ -11,7 +11,7 @@ Talk to it by text or voice: the locally running LLM generates a reply, and the 
 
 You can also run everything on a single PC without a dedicated server machine. For setup, see [How to run (3 profiles)](#how-to-run-3-profiles) and the per-profile setup guides ([WSL AMD Setup](./docs/wsl-amd-setup.md) / [MacBook Local Setup](./docs/macbook-local-setup.md), both in Japanese).
 
-![Screenshot of Irodori Chat: character image next to a Japanese conversation thread with speech players and a voice input box](./docs/assets/screenshot.png)
+![Screenshot of Irodori Voice: character image next to a Japanese conversation thread with speech players and a voice input box](./docs/assets/screenshot.png)
 
 ## Overview
 

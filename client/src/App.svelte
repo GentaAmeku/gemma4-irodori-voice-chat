@@ -571,7 +571,7 @@
 </script>
 
 <svelte:head>
-  <title>Gemma4 Irodori Chat</title>
+  <title>Irodori Voice</title>
 </svelte:head>
 
 <main class="app">

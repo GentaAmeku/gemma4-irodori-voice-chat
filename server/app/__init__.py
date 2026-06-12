@@ -1,1 +1,1 @@
-"""Gemma4 Irodori Chat conversation server."""
+"""Irodori Voice conversation server."""

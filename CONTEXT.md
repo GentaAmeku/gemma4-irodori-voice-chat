@@ -1,4 +1,4 @@
-# Gemma4 Irodori Chat
+# Irodori Voice
 
 日本語の音声会話AIアプリに関する言葉を揃えるための用語集。
 

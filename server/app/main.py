@@ -71,7 +71,7 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             )
             yield
 
-    app = FastAPI(title="Gemma4 Irodori Chat Server", lifespan=lifespan)
+    app = FastAPI(title="Irodori Voice Server", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
