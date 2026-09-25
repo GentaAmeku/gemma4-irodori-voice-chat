@@ -2,27 +2,38 @@
 
 English | [日本語](./README.ja.md)
 
-A local AI voice conversation app that runs a local LLM on a server machine (Windows + AMD GPU / WSL) for text understanding and voice output. This is a research project for trying out Japanese voice conversations with an AI character, currently powered by Gemma4 (LLM) and Irodori-TTS (text-to-speech).
-
-Talk to it by text or voice: the locally running LLM generates a reply, and the character answers with synthesized speech. No cloud LLM APIs are used — all inference stays on your own PCs within the same LAN.
+**Talk with an AI character in Japanese, out loud, on PCs you own.**
+Irodori Voice is a research project: a voice chat app that runs a local LLM (Gemma4 on Ollama) and a Japanese text-to-speech engine (Irodori-TTS) on your own hardware. The character's replies and voice never go through a cloud LLM or TTS API.
 
 > [!WARNING]
 > The app is usable, but much of it is still experimental. No guarantees about stability or behavior.
 
-You can also run everything on a single PC without a dedicated server machine. For setup, see [How to run (3 profiles)](#how-to-run-3-profiles) and the per-profile setup guides ([WSL AMD Setup](./docs/wsl-amd-setup.md) / [MacBook Local Setup](./docs/macbook-local-setup.md), both in Japanese).
-
 ![Screenshot of Irodori Voice: character image next to a Japanese conversation thread with speech players and a voice input box](./docs/assets/screenshot.png)
 
-## Overview
+## Why Irodori Voice
 
-The client connects to **a single conversation-server URL**, and the conversation server orchestrates the LLM and text-to-speech behind it.
+Voice chat with an AI character usually means a cloud service. Everything you say goes to someone else's server, usage is metered, and the model and the voice are whatever the service offers. You can build the same thing locally, but you have to wire an LLM, a Japanese TTS engine and a chat client together yourself, and on a Windows PC with an AMD GPU, just getting the TTS to run on the GPU (ROCm under WSL) is a project of its own.
 
-```mermaid
-flowchart LR
-    cl["Client :5173<br/>(Svelte / browser or Tauri)"] --> cs["Conversation server :8000<br/>(FastAPI)"]
-    cs --> ol["Ollama :11434<br/>(LLM: gemma4)"]
-    cs --> tt["Irodori-TTS :8088<br/>(text-to-speech)"]
-```
+**Without Irodori Voice**
+
+- Your conversations and the character's lines pass through cloud LLM and TTS services.
+- You pay per use or run into limits, and you cannot swap the model or tune the voice.
+- A do-it-yourself setup means connecting Ollama, a TTS server and a client by hand, then sorting out GPU drivers, WSL networking and port forwarding before the first reply.
+
+**With Irodori Voice**
+
+- Type or speak, and the character answers with text and a Japanese voice that plays automatically.
+- The LLM and the TTS run on your own PC. The client connects to one conversation server on your LAN.
+- The character, tone, sense of distance, speaking speed and voice are settings you control, and a fixed seed keeps the voice consistent.
+- Scripts set up and start the whole stack on Windows + AMD GPU (WSL), open it to your LAN, and check its health. You can also run everything on a single MacBook, or run the UI in mock mode with no LLM or TTS at all.
+
+## How it works
+
+<p align="center">
+  <img src="docs/assets/architecture.png" alt="Architecture: on your LAN, the chat client sends each turn to the conversation server (FastAPI), which asks Ollama running Gemma4 for the reply, has Irodori-TTS voice it, and stores the WAV and the history; optional voice input comes from the browser's speech recognition">
+</p>
+
+The client knows a single URL: the conversation server. For each turn, the server builds the character prompt from your settings, asks Gemma4 for a reply, has Irodori-TTS read it aloud, saves the WAV, and returns the text with an audio URL for the client to play. Voice input is optional and uses the browser's speech recognition (Web Speech API); in Chrome, that audio is sent to Google. Typed conversations stay on your LAN. The diagram is generated with [Archify](https://github.com/tt-a1i/archify) from [`docs/assets/architecture.archify.json`](./docs/assets/architecture.archify.json).
 
 | Layer | Tech |
 |---|---|

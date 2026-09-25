@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "How Irodori Voice works",
+    "locale": "en",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "speech",
+      "type": "external",
+      "label": "Speech recognition",
+      "sublabel": "browser API · optional",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "client",
+      "type": "frontend",
+      "label": "Chat client",
+      "sublabel": "Svelte · browser or Tauri",
+      "pos": [
+        40,
+        280
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "server",
+      "type": "backend",
+      "label": "Conversation server",
+      "sublabel": "FastAPI :8000",
+      "pos": [
+        440,
+        280
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Settings & audio",
+      "sublabel": "files · history in memory",
+      "pos": [
+        440,
+        470
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ollama",
+      "type": "backend",
+      "label": "Ollama · Gemma4",
+      "sublabel": "reply text :11434",
+      "pos": [
+        840,
+        180
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "tts",
+      "type": "backend",
+      "label": "Irodori-TTS",
+      "sublabel": "Japanese voice :8088",
+      "pos": [
+        840,
+        380
+      ],
+      "size": [
+        180,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Your LAN",
+      "wraps": [
+        "client",
+        "server",
+        "store",
+        "ollama",
+        "tts"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "voice-input",
+      "from": "speech",
+      "to": "client",
+      "label": "recognized text",
+      "variant": "dashed",
+      "labelDy": 80
+    },
+    {
+      "id": "turn",
+      "from": "client",
+      "to": "server",
+      "label": "POST /api/turns/text",
+      "variant": "emphasis"
+    },
+    {
+      "id": "chat",
+      "from": "server",
+      "to": "ollama",
+      "label": "/api/chat",
+      "variant": "emphasis"
+    },
+    {
+      "id": "speak",
+      "from": "server",
+      "to": "tts",
+      "label": "/v1/audio/speech",
+      "variant": "emphasis"
+    },
+    {
+      "id": "save",
+      "from": "server",
+      "to": "store",
+      "label": "WAV · history",
+      "labelDy": 76
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "One conversation turn",
+      "items": [
+        "Builds the character prompt from your settings",
+        "Gemma4 writes the reply; Irodori-TTS voices it",
+        "Returns text and an audio URL; the client plays it"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Stays on your LAN",
+      "items": [
+        "No cloud LLM or TTS API",
+        "The client knows only the conversation server",
+        "Voice input is the browser's; Chrome sends it to Google"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Runs on what you have",
+      "items": [
+        "Windows + AMD GPU (Ollama, TTS on ROCm in WSL)",
+        "A MacBook as the client over the LAN",
+        "A MacBook alone, or mock mode for UI work"
+      ]
+    }
+  ]
+}
